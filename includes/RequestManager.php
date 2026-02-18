@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Extension\Notifications\Model\Event;
@@ -17,14 +17,11 @@ use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManagerFactory;
 use MessageLocalizer;
-use Miraheze\RenameWiki\Jobs\RenameWikiJob;
 use Miraheze\ManageWiki\Helpers\Factories\ModuleFactory;
+use Miraheze\MirahezeRequests\Jobs\RenameWikiJob;
 use stdClass;
-use Wikimedia\FileBackend\FileBackend;
 use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 use Wikimedia\Rdbms\Platform\ISQLPlatform;
 use Wikimedia\Rdbms\SelectQueryBuilder;
 
@@ -62,7 +59,7 @@ class RequestManager {
 	}
 
 	public function loadFromID( int $requestID ): void {
-		$this->dbw = $this->connectionProvider->getPrimaryDatabase( 'virtual-renamewiki' );
+		$this->dbw = $this->connectionProvider->getPrimaryDatabase( 'virtual-mirahezerequests' );
 		$this->ID = $requestID;
 
 		$this->row = $this->dbw->newSelectQueryBuilder()

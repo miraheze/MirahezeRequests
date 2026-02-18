@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
 use MediaWiki\HTMLForm\OOUIHTMLForm;
 use MediaWiki\Logger\LoggerFactory;

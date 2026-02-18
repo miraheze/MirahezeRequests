@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Tests\Specials;
+namespace Miraheze\MirahezeRequests\Tests\Specials;
 
 use Generator;
 use MediaWiki\Context\DerivativeContext;
@@ -10,8 +10,8 @@ use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
 use MediaWiki\WikiMap\WikiMap;
-use Miraheze\RenameWiki\Specials\SpecialRequestRenameWiki;
 use Miraheze\ManageWiki\Helpers\Factories\ModuleFactory;
+use Miraheze\MirahezeRequests\Specials\SpecialRequestRenameWiki;
 use SpecialPageTestBase;
 use Wikimedia\TestingAccessWrapper;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
@@ -20,7 +20,7 @@ use Wikimedia\Timestamp\ConvertibleTimestamp;
  * @group RenameWiki
  * @group Database
  * @group medium
- * @coversDefaultClass \Miraheze\RenameWiki\Specials\SpecialRequestRenameWiki
+ * @coversDefaultClass \Miraheze\MirahezeRequests\Specials\SpecialRequestRenameWiki
  */
 class SpecialRequestRenameWikiTest extends SpecialPageTestBase {
 
@@ -43,7 +43,7 @@ class SpecialRequestRenameWikiTest extends SpecialPageTestBase {
 		parent::setUp();
 
 		$this->overrideConfigValue( MainConfigNames::VirtualDomainsMapping, [
-			'virtual-renamewiki' => [ 'db' => WikiMap::getCurrentWikiId() ],
+			'virtual-mirahezerequests' => [ 'db' => WikiMap::getCurrentWikiId() ],
 		] );
 
 		$this->specialRequestRenameWiki = $this->newSpecialPage();

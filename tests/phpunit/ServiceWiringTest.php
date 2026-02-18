@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Tests;
+namespace Miraheze\MirahezeRequests\Tests;
 
 use Generator;
 use MediaWikiIntegrationTestCase;

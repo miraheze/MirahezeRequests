@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
 use MediaWiki\Config\Config;
 use MediaWiki\Context\IContextSource;
@@ -15,7 +15,7 @@ use MediaWiki\WikiMap\WikiMap;
 use OOUI\HtmlSnippet;
 use OOUI\MessageWidget;
 
-class RequestViewer implements RenameWikiStatus {
+class RequestViewer implements MirahezeRequestsStatus {
 
 	public function __construct(
 		private readonly Config $config,

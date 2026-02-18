@@ -1,9 +1,9 @@
 <?php
 
-namespace Miraheze\RenameWiki\Hooks;
+namespace Miraheze\MirahezeRequests\Hooks;
 
 use MediaWiki\HookContainer\HookContainer;
-use Miraheze\RenameWiki\RequestManager;
+use Miraheze\MirahezeRequests\RequestManager;
 
 class HookRunner implements
 	RenameWikiJobAfterRenameWikiHook,

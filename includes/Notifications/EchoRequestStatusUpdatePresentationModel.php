@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Notifications;
+namespace Miraheze\MirahezeRequests\Notifications;
 
 use MediaWiki\Extension\Notifications\Formatters\EchoEventPresentationModel;
 use MediaWiki\Language\RawMessage;

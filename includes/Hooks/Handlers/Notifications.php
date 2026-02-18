@@ -1,15 +1,15 @@
 <?php
 
-namespace Miraheze\RenameWiki\Hooks\Handlers;
+namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Extension\Notifications\AttributeManager;
 use MediaWiki\Extension\Notifications\Hooks\BeforeCreateEchoEventHook;
 use MediaWiki\Extension\Notifications\UserLocator;
 use MediaWiki\WikiMap\WikiMap;
-use Miraheze\RenameWiki\Notifications\EchoRenameWikiFailedPresentationModel;
-use Miraheze\RenameWiki\Notifications\EchoNewRequestPresentationModel;
-use Miraheze\RenameWiki\Notifications\EchoRequestCommentPresentationModel;
-use Miraheze\RenameWiki\Notifications\EchoRequestStatusUpdatePresentationModel;
+use Miraheze\MirahezeRequests\Notifications\EchoNewRequestPresentationModel;
+use Miraheze\MirahezeRequests\Notifications\EchoRenameWikiFailedPresentationModel;
+use Miraheze\MirahezeRequests\Notifications\EchoRequestCommentPresentationModel;
+use Miraheze\MirahezeRequests\Notifications\EchoRequestStatusUpdatePresentationModel;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class Notifications implements BeforeCreateEchoEventHook {
@@ -25,7 +25,7 @@ class Notifications implements BeforeCreateEchoEventHook {
 		array &$notificationCategories,
 		array &$icons
 	): void {
-		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 		if ( !WikiMap::isCurrentWikiDbDomain( $dbr->getDomainID() ) ) {
 			return;
 		}

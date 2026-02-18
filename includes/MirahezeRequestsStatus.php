@@ -1,8 +1,8 @@
 <?php
 
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
-interface RenameWikiStatus {
+interface MirahezeRequestsStatus {
 
 	public const STATUS_COMPLETE = 'complete';
 

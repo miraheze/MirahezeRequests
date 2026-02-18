@@ -1,17 +1,19 @@
 {
-	"name": "miraheze/renamewiki-dump",
+	"name": "miraheze/mirahezerequests",
 	"type": "mediawiki-extension",
-	"description": "A MediaWiki extension designed to automate user renamewiki requests.",
-	"homepage": "https://www.mediawiki.org/wiki/Extension:RenameWiki",
+	"description": "A MediaWiki extension designed to automate user requests.",
+	"homepage": "https://github.com/miraheze/MirahezeRequests",
 	"license": "GPL-3.0-or-later",
 	"authors": [
 		{
-			"name": "Universal Omega"
+			"name": "Pskyechology"
+		},
+		{
+			"name": "Reception123"
 		}
 	],
 	"support": {
-		"issues": "https://issue-tracker.miraheze.org/tag/renamewiki/",
-		"wiki": "https://www.mediawiki.org/wiki/Extension:RenameWiki"
+		"issues": "https://issue-tracker.miraheze.org/tag/mirahezerequests/"
 	},
 	"require": {
 		"composer/installers": ">=1.0.1"

@@ -1,31 +1,31 @@
 <?php
 
-namespace Miraheze\RenameWiki\Tests;
+namespace Miraheze\MirahezeRequests\Tests;
 
 use MediaWiki\MainConfigNames;
 use MediaWikiIntegrationTestCase;
-use Miraheze\RenameWiki\RenameWikiStatus;
-use Miraheze\RenameWiki\RequestManager;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\RequestManager;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 /**
  * @group RenameWiki
  * @group Database
  * @group medium
- * @coversDefaultClass \Miraheze\RenameWiki\RequestManager
+ * @coversDefaultClass \Miraheze\MirahezeRequests\RequestManager
  */
 class RequestManagerTest extends MediaWikiIntegrationTestCase
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public function addDBDataOnce(): void {
 		$this->overrideConfigValue( MainConfigNames::VirtualDomainsMapping, [
-			'virtual-renamewiki' => [ 'db' => 'wikidb' ],
+			'virtual-mirahezerequests' => [ 'db' => 'wikidb' ],
 		] );
 
 		ConvertibleTimestamp::setFakeTime( ConvertibleTimestamp::now() );
 
 		$connectionProvider = $this->getServiceContainer()->getConnectionProvider();
-		$dbw = $connectionProvider->getPrimaryDatabase( 'virtual-renamewiki' );
+		$dbw = $connectionProvider->getPrimaryDatabase( 'virtual-mirahezerequests' );
 
 		$dbw->newInsertQueryBuilder()
 			->insertInto( 'renamewiki_requests' )

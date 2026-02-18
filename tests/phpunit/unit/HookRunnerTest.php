@@ -1,13 +1,13 @@
 <?php
 
-namespace Miraheze\RenameWiki\Tests\Unit;
+namespace Miraheze\MirahezeRequests\Tests\Unit;
 
 use Generator;
 use MediaWiki\Tests\HookContainer\HookRunnerTestBase;
-use Miraheze\RenameWiki\Hooks\HookRunner;
+use Miraheze\MirahezeRequests\Hooks\HookRunner;
 
 /**
- * @covers \Miraheze\RenameWiki\Hooks\HookRunner
+ * @covers \Miraheze\MirahezeRequests\Hooks\HookRunner
  */
 class HookRunnerTest extends HookRunnerTestBase {
 

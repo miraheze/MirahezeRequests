@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Jobs;
+namespace Miraheze\MirahezeRequests\Jobs;
 
 use ImportStreamSource;
 use InitEditCount;
@@ -17,9 +17,9 @@ use MediaWiki\Permissions\UltimateAuthority;
 use MediaWiki\SiteStats\SiteStatsInit;
 use MediaWiki\User\User;
 use MessageLocalizer;
-use Miraheze\RenameWiki\Hooks\HookRunner;
-use Miraheze\RenameWiki\RenameWikiStatus;
-use Miraheze\RenameWiki\RequestManager;
+use Miraheze\MirahezeRequests\Hooks\HookRunner;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\RequestManager;
 use RebuildRecentchanges;
 use RebuildTextIndex;
 use RefreshLinks;
@@ -29,7 +29,7 @@ use WikiImporterFactory;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class RenameWikiJob extends Job
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public const JOB_NAME = 'RenameWikiJob';
 
@@ -72,7 +72,7 @@ class RenameWikiJob extends Job
 		$this->hookRunner->onRenameWikiJobGetFile( $filePath, $this->requestManager );
 
 		// @phan-suppress-next-line SecurityCheck-PathTraversal False positive
-$importStreamSource = ImportStreamSource::newFromFile( $filePath );
+		$importStreamSource = ImportStreamSource::newFromFile( $filePath );
 		if ( !$importStreamSource->isGood() ) {
 			$this->jobError = "Import source for $filePath failed";
 			$this->setLastError( $this->jobError );
@@ -95,7 +95,7 @@ $importStreamSource = ImportStreamSource::newFromFile( $filePath );
 
 		try {
 			$user = User::newSystemUser( 'RenameWiki Extension', [ 'steal' => true ] );
-		$importer = $this->wikiImporterFactory->getWikiImporter(
+			$importer = $this->wikiImporterFactory->getWikiImporter(
 				$importStreamSource->value, new UltimateAuthority( $user )
 			);
 
@@ -181,7 +181,7 @@ $importStreamSource = ImportStreamSource::newFromFile( $filePath );
 	}
 
 	private function getLoggingWiki(): string {
-		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 		return $dbr->getDomainID();
 	}
 

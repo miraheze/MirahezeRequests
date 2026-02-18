@@ -1,20 +1,20 @@
 <?php
 
-namespace Miraheze\RenameWiki\Specials;
+namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Exception\ErrorPageError;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\User\UserFactory;
 use MediaWiki\WikiMap\WikiMap;
-use Miraheze\RenameWiki\RenameWikiRequestQueuePager;
-use Miraheze\RenameWiki\RenameWikiStatus;
-use Miraheze\RenameWiki\RequestManager;
-use Miraheze\RenameWiki\RequestViewer;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\RenameWikiRequestQueuePager;
+use Miraheze\MirahezeRequests\RequestManager;
+use Miraheze\MirahezeRequests\RequestViewer;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class SpecialRequestRenameWikiQueue extends SpecialPage
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public function __construct(
 		private readonly IConnectionProvider $connectionProvider,
@@ -31,7 +31,7 @@ class SpecialRequestRenameWikiQueue extends SpecialPage
 	public function execute( $par ): void {
 		$this->setHeaders();
 
-		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 		if ( !WikiMap::isCurrentWikiDbDomain( $dbr->getDomainID() ) ) {
 			throw new ErrorPageError(
 				'renamewiki-requestrenamewikiqueue-notcentral',
