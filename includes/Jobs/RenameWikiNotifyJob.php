@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Jobs;
+namespace Miraheze\MirahezeRequests\Jobs;
 
 use MediaWiki\Config\Config;
 use MediaWiki\Context\RequestContext;
@@ -11,12 +11,12 @@ use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MessageLocalizer;
-use Miraheze\RenameWiki\ConfigNames;
-use Miraheze\RenameWiki\RenameWikiStatus;
-use Miraheze\RenameWiki\RequestManager;
+use Miraheze\MirahezeRequests\ConfigNames;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\RequestManager;
 
 class RenameWikiNotifyJob extends Job
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public const JOB_NAME = 'RenameWikiNotifyJob';
 

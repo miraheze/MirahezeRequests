@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Hooks\Handlers;
+namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Block\Hook\GetAllBlockActionsHook;
 use MediaWiki\Hook\LoginFormValidErrorMessagesHook;
@@ -21,7 +21,7 @@ class Main implements
 
 	/** @inheritDoc */
 	public function onGetAllBlockActions( &$actions ) {
-		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 		if ( !WikiMap::isCurrentWikiDbDomain( $dbr->getDomainID() ) ) {
 			return;
 		}

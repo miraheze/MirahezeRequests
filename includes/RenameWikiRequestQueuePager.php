@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Linker\LinkRenderer;
@@ -10,7 +10,7 @@ use MediaWiki\User\UserFactory;
 use Wikimedia\Rdbms\IConnectionProvider;
 
 class RenameWikiRequestQueuePager extends TablePager
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public function __construct(
 		IContextSource $context,
@@ -24,7 +24,7 @@ class RenameWikiRequestQueuePager extends TablePager
 
 	) {
 		parent::__construct( $context, $linkRenderer );
-		$this->mDb = $connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$this->mDb = $connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 	}
 
 	/** @inheritDoc */

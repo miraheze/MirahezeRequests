@@ -1,7 +1,7 @@
 <?php
 
 // phpcs:disable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
-namespace Miraheze\RenameWiki;
+namespace Miraheze\MirahezeRequests;
 
 /**
  * A class containing constants representing the names of configuration variables,

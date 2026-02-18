@@ -1,12 +1,11 @@
 <?php
 
-namespace Miraheze\RenameWiki\Specials;
+namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Exception\ErrorPageError;
 use MediaWiki\Exception\PermissionsError;
 use MediaWiki\Exception\UserBlockedError;
 use MediaWiki\Extension\Notifications\Model\Event;
-use MediaWiki\FileRepo\FileRepo;
 use MediaWiki\FileRepo\RepoGroup;
 use MediaWiki\Html\Html;
 use MediaWiki\Logging\ManualLogEntry;
@@ -19,18 +18,16 @@ use MediaWiki\Status\Status;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MediaWiki\WikiMap\WikiMap;
-use Miraheze\RenameWiki\ConfigNames;
-use Miraheze\RenameWiki\RenameWikiStatus;
 use Miraheze\ManageWiki\Helpers\Factories\ModuleFactory;
+use Miraheze\MirahezeRequests\ConfigNames;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use UploadBase;
-use UploadFromUrl;
-use UploadStash;
 use Wikimedia\Mime\MimeAnalyzer;
 use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\Platform\ISQLPlatform;
 
 class SpecialRequestRenameWiki extends FormSpecialPage
-	implements RenameWikiStatus {
+	implements MirahezeRequestsStatus {
 
 	public function __construct(
 		private readonly IConnectionProvider $connectionProvider,
@@ -52,7 +49,7 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 		$this->setParameter( $par );
 		$this->setHeaders();
 
-		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-renamewiki' );
+		$dbr = $this->connectionProvider->getReplicaDatabase( 'virtual-mirahezerequests' );
 		if ( !WikiMap::isCurrentWikiDbDomain( $dbr->getDomainID() ) ) {
 			throw new ErrorPageError( 'renamewiki-notcentral', 'renamewiki-notcentral-text' );
 		}
@@ -116,7 +113,7 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 			return Status::newFatal( 'actionthrottledtext' );
 		}
 
-		$dbw = $this->connectionProvider->getPrimaryDatabase( 'virtual-renamewiki' );
+		$dbw = $this->connectionProvider->getPrimaryDatabase( 'virtual-mirahezerequests' );
 		$duplicate = $dbw->newSelectQueryBuilder()
 			->select( ISQLPlatform::ALL_ROWS )
 			->from( 'renamewiki_requests' )
@@ -127,7 +124,7 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 			->caller( __METHOD__ )
 			->fetchRow();
 
-//		if ( (bool)$duplicate ) {
+// if ( (bool)$duplicate ) {
 //			return Status::newFatal( 'renamewiki-duplicate-request' );
 //		}
 

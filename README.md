@@ -1,7 +1,7 @@
-# ImportDump
-An extension designed to automate user import requests.
+# MirahezeRequests
+An extension designed to automate user requests.
 
-Developed by Universal Omega.
+Developed by Pskyechology.
 
 Licensed under the GPLv3 (or later) LICENSE.
 

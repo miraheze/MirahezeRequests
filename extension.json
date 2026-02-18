@@ -1,9 +1,9 @@
 {
-	"name": "RestrictedWorkflows",
-	"author": "Reception123",
-	"url": "https://github.com/miraheze/RestrictedWorkflows",
-	"descriptionmsg": "restrictedworkflows-desc",
-	"namemsg": "restrictedworkflows-extensionname",
+	"name": "MirahezeRequests",
+	"author": ["Pskyechology", "Reception123"],
+	"url": "https://github.com/miraheze/MirahezeRequests",
+	"descriptionmsg": "mirahezerequests-desc",
+	"namemsg": "mirahezerequests-extensionname",
 	"license-name": "GPL-3.0-or-later",
 	"type": "specialpage",
 	"requires": {
@@ -18,20 +18,20 @@
 		]
 	},
 	"ExtensionMessagesFiles": {
-		"RenameWikiAliases": "RenameWikiAliases.php"
+		"MirahezeRequestsAliases": "MirahezeRequestsAliases.php"
 	},
 	"AutoloadNamespaces": {
-		"Miraheze\\RenameWiki\\": "includes/"
+		"Miraheze\\MirahezeRequests\\": "includes/"
 	},
 	"TestAutoloadNamespaces": {
-		"Miraheze\\RenameWiki\\Tests\\": "tests/phpunit/"
+		"Miraheze\\MirahezeRequests\\Tests\\": "tests/phpunit/"
 	},
 	"JobClasses": {
 		"RenameWikiJob": {
-			"class": "Miraheze\\RenameWiki\\Jobs\\RenameWikiJob",
+			"class": "Miraheze\\MirahezeRequests\\Jobs\\RenameWikiJob",
 			"services": [
 				"ConnectionProvider",
-				"RenameWikiConfig",
+				"MirahezeRequestsConfig",
 				"RenameWikiHookRunner",
 				"RenameWikiRequestManager",
 				"JobQueueGroupFactory",
@@ -40,10 +40,10 @@
 			"needsPage": false
 		},
 		"RenameWikiNotifyJob": {
-			"class": "Miraheze\\RenameWiki\\Jobs\\RenameWikiNotifyJob",
+			"class": "Miraheze\\MirahezeRequests\\Jobs\\RenameWikiNotifyJob",
 			"services": [
 				"ExtensionRegistry",
-				"RenameWikiConfig",
+				"MirahezeRequestsConfig",
 				"RenameWikiRequestManager",
 				"UserFactory"
 			],
@@ -112,7 +112,7 @@
 	},
 	"SpecialPages": {
 		"RequestRenameWiki": {
-			"class": "Miraheze\\RenameWiki\\Specials\\SpecialRequestRenameWiki",
+			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestRenameWiki",
 			"services": [
 				"ConnectionProvider",
 				"ExtensionRegistry",
@@ -125,7 +125,7 @@
 			]
 		},
 		"RequestRenameWikiQueue": {
-			"class": "Miraheze\\RenameWiki\\Specials\\SpecialRequestRenameWikiQueue",
+			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestRenameWikiQueue",
 			"services": [
 				"ConnectionProvider",
 				"RenameWikiRequestManager",
@@ -152,16 +152,16 @@
 	},
 	"HookHandlers": {
 		"Installer": {
-			"class": "Miraheze\\RenameWiki\\Hooks\\Handlers\\Installer"
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Installer"
 		},
 		"Main": {
-			"class": "Miraheze\\RenameWiki\\Hooks\\Handlers\\Main",
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
 			"services": [
 				"ConnectionProvider"
 			]
 		},
 		"Notifications": {
-			"class": "Miraheze\\RenameWiki\\Hooks\\Handlers\\Notifications",
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Notifications",
 			"services": [
 				"ConnectionProvider"
 			]
@@ -181,7 +181,7 @@
 	},
 	"ResourceFileModulePaths": {
 		"localBasePath": "modules",
-		"remoteExtPath": "RenameWiki/modules"
+		"remoteExtPath": "MirahezeRequests/modules"
 	},
 	"config": {
 		"RenameWikiEnableAutomatedJob": {
@@ -232,7 +232,7 @@
 		"includes/ServiceWiring.php"
 	],
 	"DatabaseVirtualDomains": [
-		"virtual-renamewiki"
+		"virtual-mirahezerequests"
 	],
 	"manifest_version": 2
 }

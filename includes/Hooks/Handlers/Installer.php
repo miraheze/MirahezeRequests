@@ -1,6 +1,6 @@
 <?php
 
-namespace Miraheze\RenameWiki\Hooks\Handlers;
+namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 
@@ -12,7 +12,7 @@ class Installer implements LoadExtensionSchemaUpdatesHook {
 		$dir = __DIR__ . '/../../../sql';
 
 		$updater->addExtensionUpdateOnVirtualDomain( [
-			'virtual-renamewiki',
+			'virtual-mirahezerequests',
 			'addTable',
 			'renamewiki_requests',
 			"$dir/$dbType/tables-generated.sql",
