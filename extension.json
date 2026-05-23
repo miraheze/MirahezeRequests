@@ -1,19 +1,19 @@
 {
 	"name": "MirahezeRequests",
-	"author": ["Pskyechology", "Reception123"],
+	"author": "Pskyechology",
 	"url": "https://github.com/miraheze/MirahezeRequests",
 	"descriptionmsg": "mirahezerequests-desc",
 	"namemsg": "mirahezerequests-extensionname",
 	"license-name": "GPL-3.0-or-later",
 	"type": "specialpage",
 	"requires": {
-		"MediaWiki": ">= 1.44.0",
+		"MediaWiki": ">= 1.45.0",
 		"platform": {
-			"php": ">= 8.2"
+			"php": ">= 8.4"
 		}
 	},
 	"MessagesDirs": {
-		"RenameWiki": [
+		"MirahezeRequests": [
 			"i18n"
 		]
 	},
@@ -27,6 +27,14 @@
 		"Miraheze\\MirahezeRequests\\Tests\\": "tests/phpunit/"
 	},
 	"JobClasses": {
+		"MirahezeRequestsCreateAccountJob": {
+			"class": "Miraheze\\MirahezeRequests\\Jobs\\CreateAccountJob",
+			"services": [
+				"UserFactory",
+				"AuthManager"
+			],
+			"needsPage": false
+		},
 		"RenameWikiJob": {
 			"class": "Miraheze\\MirahezeRequests\\Jobs\\RenameWikiJob",
 			"services": [
@@ -111,79 +119,65 @@
 		}
 	},
 	"SpecialPages": {
+		"RequestAccount": {
+			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestAccount",
+			"services": [
+				"MirahezeRequestsDatabaseService"
+			]
+		},
+		"RequestAccountQueue": {
+			"class": "Miraheze\\MirahezeRequests\\Specials\\Queue\\SpecialRequestAccountQueue",
+			"services": [
+				"MirahezeRequestsDatabaseService",
+				"RequestAccountManager",
+				"UserFactory"
+			]
+		},
+		"RequestDPE": {
+			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestDPE",
+			"services": [
+				"MirahezeRequestsDatabaseService"
+			]
+		},
 		"RequestRenameWiki": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestRenameWiki",
 			"services": [
 				"ConnectionProvider",
+				"MirahezeRequestsValidator",
 				"ExtensionRegistry",
-				"MimeAnalyzer",
-				"RepoGroup",
 				"UserFactory"
 			],
 			"optional_services": [
 				"ManageWikiModuleFactory"
 			]
-		},
-		"RequestRenameWikiQueue": {
-			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestRenameWikiQueue",
-			"services": [
-				"ConnectionProvider",
-				"RenameWikiRequestManager",
-				"UserFactory"
-			]
-		}
-	},
-	"Hooks": {
-		"BeforeCreateEchoEvent": {
-			"handler": "Notifications"
-		},
-		"GetAllBlockActions": {
-			"handler": "Main"
-		},
-		"LoadExtensionSchemaUpdates": {
-			"handler": "Installer"
-		},
-		"LoginFormValidErrorMessages": {
-			"handler": "Main"
-		},
-		"UserGetReservedNames": {
-			"handler": "Main"
-		}
-	},
-	"HookHandlers": {
-		"Installer": {
-			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Installer"
-		},
-		"Main": {
-			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
-			"services": [
-				"ConnectionProvider"
-			]
-		},
-		"Notifications": {
-			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Notifications",
-			"services": [
-				"ConnectionProvider"
-			]
 		}
 	},
 	"ResourceModules": {
-		"ext.renamewiki.oouiform": {
-			"scripts": "ext.renamewiki.oouiform.ooui.js",
+		"ext.mirahezerequests.tabs": {
+			"class": "MediaWiki\\ResourceLoader\\CodexModule",
+			"codexComponents": [
+				"CdxMessage",
+				"CdxTabs",
+				"CdxTab"
+			],
 			"dependencies": [
-				"mediawiki.storage",
-				"oojs-ui-widgets"
+				"vue"
+			],
+			"packageFiles": [
+				"ext.mirahezerequests.tabs/init.js",
+				"ext.mirahezerequests.tabs/App.vue"
 			]
-		},
-		"ext.renamewiki.oouiform.styles": {
-			"styles": "ext.renamewiki.oouiform.ooui.less"
 		}
 	},
 	"ResourceFileModulePaths": {
-		"localBasePath": "modules",
-		"remoteExtPath": "MirahezeRequests/modules"
+		"localBasePath": "resources",
+		"remoteExtPath": "MirahezeRequests/resources"
 	},
 	"config": {
+		"MirahezeRequestsDatabaseSuffix": {
+			"value": "wiki",
+			"description": "String. Database suffix."
+		},
 		"RenameWikiEnableAutomatedJob": {
 			"value": true,
 			"description": "Whether to enable a job where a reviewer just has to 'approve' an renamewiki and job handles everything else. You can use the RenameWikiJobGetFile hook to manipulate how the job gets the XML file."
@@ -210,7 +204,7 @@
 		}
 	},
 	"ConfigRegistry": {
-		"RenameWiki": "MediaWiki\\Config\\GlobalVarConfig::newInstance"
+		"MirahezeRequests": "MediaWiki\\Config\\GlobalVarConfig::newInstance"
 	},
 	"DefaultUserOptions": {
 		"echo-subscriptions-email-renamewiki-renamewiki-failed": true,
