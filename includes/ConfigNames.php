@@ -9,11 +9,11 @@ namespace Miraheze\MirahezeRequests;
  */
 class ConfigNames {
 
+	public const DatabaseSuffix = 'MirahezeRequestsDatabaseSuffix';
+
 	public const EnableAutomatedJob = 'RenameWikiEnableAutomatedJob';
 
 	public const HelpUrl = 'RenameWikiHelpUrl';
-
-	public const InterwikiMap = 'RenameWikiInterwikiMap';
 
 	public const ScriptCommand = 'RenameWikiScriptCommand';
 

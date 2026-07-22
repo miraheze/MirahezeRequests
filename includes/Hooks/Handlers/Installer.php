@@ -2,21 +2,23 @@
 
 namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
+use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 
 class Installer implements LoadExtensionSchemaUpdatesHook {
 
-	/** @inheritDoc */
-	public function onLoadExtensionSchemaUpdates( $updater ) {
-		$dbType = $updater->getDB()->getType();
+	public function onLoadExtensionSchemaUpdates( DatabaseUpdater $updater ) {
 		$dir = __DIR__ . '/../../../sql';
+		$dbType = $updater->getDB()->getType();
 
-		$updater->addExtensionUpdateOnVirtualDomain( [
-			'virtual-mirahezerequests',
-			'addTable',
+		$updater->addExtensionTable(
 			'renamewiki_requests',
-			"$dir/$dbType/tables-generated.sql",
-			true,
-		] );
+			"$dir/$dbType/tables-generated.sql"
+		);
+
+		$updater->addExtensionTable(
+			'account_requests',
+			"$dir/$dbType/tables-generated.sql"
+		);
 	}
 }

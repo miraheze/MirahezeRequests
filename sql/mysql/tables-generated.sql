@@ -36,3 +36,31 @@ CREATE TABLE /*_*/renamewiki_request_comments (
   INDEX request_comment_timestamp (request_comment_timestamp),
   PRIMARY KEY(request_comment_id)
 ) /*$wgDBTableOptions*/;
+
+
+CREATE TABLE /*_*/account_requests (
+  request_id BIGINT UNSIGNED AUTO_INCREMENT NOT NULL,
+  request_actor BIGINT UNSIGNED NOT NULL,
+  request_timestamp BINARY(14) NOT NULL,
+  request_email VARCHAR(255) NOT NULL,
+  request_username VARCHAR(255) NOT NULL,
+  request_reason ENUM(
+    'globalblock', 'abusefilter', 'captcha', 'other'
+  ) NOT NULL,
+  request_explanation BLOB NOT NULL,
+  request_status ENUM(
+    'complete', 'declined', 'failed',
+    'inprogress', 'pending', 'starting'
+  ) NOT NULL,
+  request_locked TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+  request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+  request_comments BLOB DEFAULT '' NOT NULL,
+  INDEX account_request_actor_timestamp (
+    request_actor, request_timestamp
+  ),
+  INDEX account_request_timestamp (request_timestamp),
+  INDEX account_request_email (request_email),
+  INDEX account_request_username (request_username),
+  INDEX account_request_status (request_status),
+  PRIMARY KEY(request_id)
+) /*$wgDBTableOptions*/;

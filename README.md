@@ -1,5 +1,5 @@
 # MirahezeRequests
-An extension designed to automate user requests.
+A Miraheze-specific extension designed to facilitate and automate user requests.
 
 Developed by Pskyechology.
 

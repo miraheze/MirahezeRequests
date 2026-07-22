@@ -140,5 +140,118 @@
 			}
 		],
 		"pk": [ "request_comment_id" ]
+	},
+	{
+		"name": "account_requests",
+		"comment": "",
+		"columns": [
+			{
+				"name": "request_id",
+				"comment": "Unique auto-increment ID",
+				"type": "bigint",
+				"options": { "autoincrement": true, "notnull": true, "unsigned": true }
+			},
+			{
+				"name": "request_actor",
+				"comment": "",
+				"type": "bigint",
+				"options": { "notnull": true, "unsigned": true }
+			},
+			{
+				"name": "request_timestamp",
+				"comment": "",
+				"type": "mwtimestamp",
+				"options": { "notnull": true }
+			},
+			{
+				"name": "request_email",
+				"comment": "",
+				"type": "string",
+				"options": { "notnull": true, "length": 255 }
+			},
+			{
+				"name": "request_username",
+				"comment": "",
+				"type": "string",
+				"options": { "notnull": true, "length": 255 }
+			},
+			{
+				"name": "request_reason",
+				"comment": "",
+				"type": "mwenum",
+				"options": { "notnull": true,
+					"CustomSchemaOptions": {
+						"enum_values": [ "globalblock", "abusefilter", "captcha", "other" ]
+					}
+				}
+			},
+			{
+				"name": "request_explanation",
+				"comment": "",
+				"type": "blob",
+				"options": { "notnull": true, "length": 65530 }
+			},
+			{
+				"name": "request_status",
+				"comment": "",
+				"type": "mwenum",
+				"options": { "notnull": true,
+					"CustomSchemaOptions": {
+						"enum_values": [ "complete", "declined", "failed", "inprogress", "pending", "starting" ]
+					}
+				}
+			},
+			{
+				"name": "request_locked",
+				"comment": "",
+				"type": "mwtinyint",
+				"options": { "notnull": true, "unsigned": true, "default": 0 }
+			},
+			{
+				"name": "request_ccemail",
+				"comment": "Whether the requester opted in to being CC'd on the decision email",
+				"type": "mwtinyint",
+				"options": { "notnull": true, "unsigned": true, "default": 0 }
+			},
+			{
+				"name": "request_comments",
+				"comment": "Optional additional comments from the requester",
+				"type": "blob",
+				"options": { "notnull": true, "length": 65530, "default": "" }
+			}
+		],
+		"indexes": [
+			{
+				"name": "account_request_actor_timestamp",
+				"comment": "",
+				"columns": [ "request_actor", "request_timestamp" ],
+				"unique": false
+			},
+			{
+				"name": "account_request_timestamp",
+				"comment": "",
+				"columns": [ "request_timestamp" ],
+				"unique": false
+			},
+			{
+				"name": "account_request_email",
+				"comment": "",
+				"columns": [ "request_email" ],
+				"unique": false
+			},
+			{
+				"name": "account_request_username",
+				"comment": "",
+				"columns": [ "request_username" ],
+				"unique": false
+			},
+			{
+				"name": "account_request_status",
+				"comment": "",
+				"columns": [ "request_status" ],
+				"unique": false
+			}
+		],
+		"pk": [ "request_id" ]
 	}
 ]

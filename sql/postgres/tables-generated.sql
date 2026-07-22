@@ -38,3 +38,31 @@ CREATE TABLE renamewiki_request_comments (
 CREATE INDEX request_id ON renamewiki_request_comments (request_id);
 
 CREATE INDEX request_comment_timestamp ON renamewiki_request_comments (request_comment_timestamp);
+
+
+CREATE TABLE account_requests (
+  request_id BIGSERIAL NOT NULL,
+  request_actor BIGINT NOT NULL,
+  request_timestamp TIMESTAMPTZ NOT NULL,
+  request_email VARCHAR(255) NOT NULL,
+  request_username VARCHAR(255) NOT NULL,
+  request_reason TEXT NOT NULL,
+  request_explanation TEXT NOT NULL,
+  request_status TEXT NOT NULL,
+  request_locked SMALLINT DEFAULT 0 NOT NULL,
+  request_ccemail SMALLINT DEFAULT 0 NOT NULL,
+  request_comments TEXT DEFAULT '' NOT NULL,
+  PRIMARY KEY(request_id)
+);
+
+CREATE INDEX account_request_actor_timestamp ON account_requests (
+  request_actor, request_timestamp
+);
+
+CREATE INDEX account_request_timestamp ON account_requests (request_timestamp);
+
+CREATE INDEX account_request_email ON account_requests (request_email);
+
+CREATE INDEX account_request_username ON account_requests (request_username);
+
+CREATE INDEX account_request_status ON account_requests (request_status);
