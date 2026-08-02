@@ -4,12 +4,9 @@ namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Exception\ErrorPageError;
 use MediaWiki\Exception\PermissionsError;
-use MediaWiki\Exception\UserBlockedError;
 use MediaWiki\Extension\Notifications\Model\Event;
-use MediaWiki\FileRepo\RepoGroup;
 use MediaWiki\Html\Html;
 use MediaWiki\Logging\ManualLogEntry;
-use MediaWiki\MainConfigNames;
 use MediaWiki\Message\Message;
 use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\SpecialPage\FormSpecialPage;
@@ -21,8 +18,7 @@ use MediaWiki\WikiMap\WikiMap;
 use Miraheze\ManageWiki\Helpers\Factories\ModuleFactory;
 use Miraheze\MirahezeRequests\ConfigNames;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
-use UploadBase;
-use Wikimedia\Mime\MimeAnalyzer;
+use Miraheze\MirahezeRequests\Services\MirahezeRequestsValidator;
 use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\Platform\ISQLPlatform;
 
@@ -31,9 +27,8 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 
 	public function __construct(
 		private readonly IConnectionProvider $connectionProvider,
+		private readonly MirahezeRequestsValidator $validator,
 		private readonly ExtensionRegistry $extensionRegistry,
-		private readonly MimeAnalyzer $mimeAnalyzer,
-		private readonly RepoGroup $repoGroup,
 		private readonly UserFactory $userFactory,
 		private readonly ?ModuleFactory $moduleFactory
 	) {
@@ -68,20 +63,20 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 
 	/** @inheritDoc */
 	protected function getFormFields(): array {
-		$formDescriptor = [
+		return [
 			'oldwiki' => [
 				'type' => 'text',
 				'label-message' => 'renamewiki-label-oldwiki',
 				'help-message' => 'renamewiki-help-oldwiki',
 				'required' => true,
-				'validation-callback' => [ $this, 'isValidDatabase' ],
+				'validation-callback' => [ $this->validator, 'isValidDatabase' ],
 			],
 			'newwiki' => [
 				'type' => 'text',
 				'label-message' => 'renamewiki-label-newwiki',
 				'help-message' => 'renamewiki-help-newwiki',
 				'required' => true,
-				'validation-callback' => [ $this, 'isInvalidDatabase' ],
+				'validation-callback' => [ $this->validator, 'isInvalidDatabase' ],
 			],
 			'reason' => [
 				'type' => 'textarea',
@@ -89,11 +84,9 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 				'label-message' => 'renamewiki-label-reason',
 				'help-message' => 'renamewiki-help-reason',
 				'required' => true,
-				'validation-callback' => [ $this, 'isValidReason' ],
+				'validation-callback' => [ $this->validator, 'isValidReason' ],
 			],
 		];
-
-		return $formDescriptor;
 	}
 
 	/**
@@ -238,60 +231,15 @@ class SpecialRequestRenameWiki extends FormSpecialPage
 		}
 	}
 
-	private function validateDatabase( ?string $wiki, bool $mustExist ): Message|true {
-		$exists = in_array( $wiki, $this->getConfig()->get( MainConfigNames::LocalDatabases ), true );
-
-		if ( $mustExist && !$exists ) {
-			return $this->msg( 'renamewiki-invalid-source' );
-		}
-
-		if ( !$mustExist && ( $exists || !str_ends_with( $wiki, 'wiki' ) ) ) {
-			return $this->msg( 'renamewiki-invalid-target' );
-		}
-
-		return true;
-	}
-
-	public function isValidDatabase( ?string $wiki ): Message|true {
-		return $this->validateDatabase( $wiki, true );
-	}
-
-	public function isInvalidDatabase( ?string $wiki ): Message|true {
-		return $this->validateDatabase( $wiki, false );
-	}
-
-	public function isValidReason( ?string $reason ): Message|true {
-		if ( !$reason || ctype_space( $reason ) ) {
-			return $this->msg( 'htmlform-required' );
-		}
-
-		return true;
-	}
-
-	/** @throws ErrorPageError|PermissionsError|UserBlockedError */
+	/** @throws ErrorPageError|PermissionsError */
 	public function checkPermissions(): void {
 		parent::checkPermissions();
 
-		$user = $this->getUser();
-		$permissionRequired = UploadBase::isAllowed( $user );
-		if ( $permissionRequired !== true ) {
-			throw new PermissionsError( $permissionRequired );
-		}
-
-		$block = $user->getBlock();
-		if (
-			$block && (
-				$user->isBlockedFromUpload() ||
-				$block->appliesToRight( 'request-renamewiki' )
-			)
-		) {
-			throw new UserBlockedError( $block );
+		if ( !$this->getAuthority()->isDefinitelyAllowed( 'request-renamewiki' ) ) {
+			throw new PermissionsError( 'request-renamewiki' );
 		}
 
 		$this->checkReadOnly();
-		if ( !UploadBase::isEnabled() ) {
-			throw new ErrorPageError( 'uploaddisabled', 'uploaddisabledtext' );
-		}
 	}
 
 	/** @inheritDoc */

@@ -6,38 +6,32 @@ use MediaWiki\Config\Config;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
-use Miraheze\MirahezeRequests\Hooks\HookRunner;
-
-// PHPUnit does not understand coverage for this file.
-// It is covered though, see ServiceWiringTest.
-// @codeCoverageIgnoreStart
+use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
+use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use Miraheze\MirahezeRequests\Services\MirahezeRequestsValidator;
 
 return [
+	'RequestAccountManager' => static function ( MediaWikiServices $services ): RequestAccountManager {
+		return new RequestAccountManager(
+			$services->getJobQueueGroupFactory(),
+			$services->get( 'MirahezeRequestsDatabaseService' ),
+			$services->getUserFactory(),
+			$services->getBlockManager()
+		);
+	},
 	'MirahezeRequestsConfig' => static function ( MediaWikiServices $services ): Config {
 		return $services->getConfigFactory()->makeConfig( 'MirahezeRequests' );
 	},
-	'RenameWikiHookRunner' => static function ( MediaWikiServices $services ): HookRunner {
-		return new HookRunner( $services->getHookContainer() );
+	'MirahezeRequestsDatabaseService' => static function ( MediaWikiServices $services ): MirahezeRequestsDatabaseService {
+		return new MirahezeRequestsDatabaseService( $services->getConnectionProvider() );
 	},
-	'RenameWikiRequestManager' => static function ( MediaWikiServices $services ): RequestManager {
-		return new RequestManager(
-			$services->getActorStoreFactory(),
-			$services->getConnectionProvider(),
-			$services->getExtensionRegistry(),
-			$services->getJobQueueGroupFactory(),
-			$services->getLinkRenderer(),
-			$services->getRepoGroup(),
+	'MirahezeRequestsValidator' => static function ( MediaWikiServices $services ) {
+		return new MirahezeRequestsValidator(
 			RequestContext::getMain(),
 			new ServiceOptions(
-				RequestManager::CONSTRUCTOR_OPTIONS,
+				MirahezeRequestsValidator::CONSTRUCTOR_OPTIONS,
 				$services->get( 'MirahezeRequestsConfig' )
-			),
-			$services->getUserFactory(),
-			$services->getUserGroupManagerFactory(),
-			$services->has( 'ManageWikiModuleFactory' ) ?
-				$services->get( 'ManageWikiModuleFactory' ) : null
+			)
 		);
-	},
+	}
 ];
-
-// @codeCoverageIgnoreEnd
