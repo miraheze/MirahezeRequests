@@ -15,6 +15,10 @@ class ConfigNames {
 
 	public const HelpUrl = 'RenameWikiHelpUrl';
 
+	public const IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
+
+	public const IPRetentionDays = 'MirahezeRequestsIPRetentionDays';
+
 	public const ScriptCommand = 'RenameWikiScriptCommand';
 
 	public const UsersNotifiedOnAllRequests = 'RenameWikiUsersNotifiedOnAllRequests';

@@ -20,7 +20,8 @@ abstract class RequestQueuePager extends TablePager implements MirahezeRequestsS
 		LinkRenderer $linkRenderer,
 		protected readonly UserFactory $userFactory,
 		protected readonly string $requester,
-		protected readonly string $status
+		protected readonly string $status,
+		protected readonly string $type = 'open'
 	) {
 		parent::__construct( $context, $linkRenderer );
 		$this->dbr = $dbService->getDbr();
@@ -48,8 +49,10 @@ abstract class RequestQueuePager extends TablePager implements MirahezeRequestsS
 
 		if ( $this->status && $this->status !== '*' ) {
 			$info['conds']['request_status'] = $this->status;
-		} elseif ( !$this->status ) {
-			$info['conds']['request_status'] = self::STATUS_PENDING;
+		} else {
+			$info['conds']['request_status'] = $this->type === 'closed'
+				? self::CLOSED_STATUSES
+				: self::OPEN_STATUSES;
 		}
 
 		return $info;

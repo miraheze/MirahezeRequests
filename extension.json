@@ -31,7 +31,9 @@
 			"class": "Miraheze\\MirahezeRequests\\Jobs\\CreateAccountJob",
 			"services": [
 				"UserFactory",
-				"AuthManager"
+				"AuthManager",
+				"RequestAccountManager",
+				"MainConfig"
 			],
 			"needsPage": false
 		},
@@ -67,23 +69,29 @@
 		"handle-renamewiki-request-interwiki",
 		"handle-renamewiki-requests",
 		"request-renamewiki",
-		"view-private-renamewiki-requests"
+		"view-private-renamewiki-requests",
+		"handle-requestaccount",
+		"request-account"
 	],
 	"LogActionsHandlers": {
 		"renamewiki/*": "MediaWiki\\Logging\\LogFormatter",
-		"renamewikiprivate/*": "MediaWiki\\Logging\\LogFormatter"
+		"renamewikiprivate/*": "MediaWiki\\Logging\\LogFormatter",
+		"requestaccount/*": "MediaWiki\\Logging\\LogFormatter"
 	},
 	"LogHeaders": {
 		"renamewiki": "renamewiki-log-header",
-		"renamewikiprivate": "renamewikiprivate-log-header"
+		"renamewikiprivate": "renamewikiprivate-log-header",
+		"requestaccount": "requestaccount-log-header"
 	},
 	"LogNames": {
 		"renamewiki": "renamewiki-log-name",
-		"renamewikiprivate": "renamewikiprivate-log-name"
+		"renamewikiprivate": "renamewikiprivate-log-name",
+		"requestaccount": "requestaccount-log-name"
 	},
 	"LogTypes": [
 		"renamewiki",
-		"renamewikiprivate"
+		"renamewikiprivate",
+		"requestaccount"
 	],
 	"LogRestrictions": {
 		"renamewikiprivate": "view-private-renamewiki-requests"
@@ -122,7 +130,8 @@
 		"RequestAccount": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestAccount",
 			"services": [
-				"MirahezeRequestsDatabaseService"
+				"MirahezeRequestsDatabaseService",
+				"UserNameUtils"
 			]
 		},
 		"RequestAccountQueue": {
@@ -186,6 +195,14 @@
 			"value": "",
 			"description": "Full URL. If set, adds a help URL to Special:RequestRenameWiki."
 		},
+		"MirahezeRequestsIPVisibilityGroups": {
+			"value": [],
+			"description": "Array of user group names allowed to see requesters' IP addresses on requests that capture one (e.g. account requests). If empty (the default), nobody can see IPs, regardless of the handle-* right - this must be explicitly configured. If non-empty, only handlers who are also in one of these groups can see IPs."
+		},
+		"MirahezeRequestsIPRetentionDays": {
+			"value": 90,
+			"description": "Number of days to retain requesters' IP addresses before they are purged by the PurgeOldRequestIPs maintenance script. Set to 0 to disable purging. This does not run automatically; it must be scheduled (e.g. via cron)."
+		},
 		"RenameWikiInterwikiMap": {
 			"value": [],
 			"description": "A mapping of 'domain => interwiki prefix' for multi-level interwiki prefix generation for --username-prefix."
@@ -219,6 +236,28 @@
 			"user": [
 				5,
 				60
+			]
+		}
+	},
+	"Hooks": {
+		"LoadExtensionSchemaUpdates": {
+			"handler": "Installer"
+		},
+		"UserGetReservedNames": {
+			"handler": "Main"
+		},
+		"GetAllBlockActions": {
+			"handler": "Main"
+		}
+	},
+	"HookHandlers": {
+		"Installer": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Installer"
+		},
+		"Main": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
+			"services": [
+				"ConnectionProvider"
 			]
 		}
 	},

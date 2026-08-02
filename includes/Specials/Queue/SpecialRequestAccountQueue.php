@@ -53,13 +53,13 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			'username' => [
 				'type' => 'text',
 				'name' => 'username',
-				'label-message' => 'requestaccount-username',
+				'label-message' => 'requestaccount-username-short',
 				'default' => $filters['username'],
 			],
 			'email' => [
 				'type' => 'text',
 				'name' => 'email',
-				'label-message' => 'requestaccount-email',
+				'label-message' => 'requestaccount-email-short',
 				'default' => $filters['email'],
 			],
 			'requester' => [
@@ -74,12 +74,14 @@ class SpecialRequestAccountQueue extends RequestQueue {
 				'name' => 'status',
 				'label-message' => 'status',
 				'options' => self::HTMLFORMOPTIONS,
-				'default' => $filters['status'] ?: self::STATUS_PENDING,
+				'default' => $filters['status'] ?: '*',
 			],
 		];
 	}
 
-	protected function buildPager( array $filters ): RequestAccountQueuePager {
+	protected function buildPager( array $filters, string $type ): RequestAccountQueuePager {
+		$canSeeIp = $this->requestManager->canSeeIp( $this->getUser() );
+
 		return new RequestAccountQueuePager(
 			$this->getContext(),
 			$this->dbService,
@@ -87,8 +89,10 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$this->userFactory,
 			$filters['requester'],
 			$filters['status'],
+			$type,
 			$filters['username'],
-			$filters['email']
+			$filters['email'],
+			$canSeeIp
 		);
 	}
 }

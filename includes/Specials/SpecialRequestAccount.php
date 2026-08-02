@@ -2,35 +2,37 @@
 
 namespace Miraheze\MirahezeRequests\Specials;
 
+use MediaWiki\Message\Message;
+use MediaWiki\User\UserNameUtils;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 
 class SpecialRequestAccount extends SpecialRequest {
 
-	public function __construct( MirahezeRequestsDatabaseService $dbService	) {
-		parent::__construct( 'RequestAccount', 'request-account', $dbService );
+	public function __construct(
+		MirahezeRequestsDatabaseService $dbService,
+		private readonly UserNameUtils $userNameUtils,
+	) {
+		parent::__construct( 'Account', 'request-account', $dbService );
 	}
 
 	protected function getFormFields(): array {
 		return [
 			'email' => [
-				'type' => 'text',
+				'type' => 'email',
 				'label-message' => 'requestaccount-email',
-				'required' => true,
-			],
-			'username' => [
-				'type' => 'text',
-				'label-message' => 'requestaccount-username',
 				'required' => true,
 			],
 			'reason' => [
 				'type' => 'radio',
 				'label-message' => 'requestaccount-reason',
+				'help-message' => 'requestaccount-reason-help',
 				'options-messages' => [
+					'requestaccount-other-label' => 'other',
 					'requestaccount-abusefilter-label' => 'abusefilter',
 					'requestaccount-captcha-label' => 'captcha',
 					'requestaccount-globalblock-label' => 'globalblock',
-					'requestaccount-other-label' => 'other',
 				],
+				'default' => 'other',
 				'required' => true,
 			],
 			'explanation' => [
@@ -38,6 +40,17 @@ class SpecialRequestAccount extends SpecialRequest {
 				'label-message' => 'requestaccount-explanation',
 				'help-message' => 'requestaccount-explanation-help',
 				'required' => true,
+			],
+			'username' => [
+				'type' => 'text',
+				'label-message' => 'requestaccount-username',
+				'help-message' => 'requestaccount-username-help',
+				'required' => true,
+				'validation-callback' => [ $this, 'isValidUsername' ],
+			],
+			'comments' => [
+				'type' => 'textarea',
+				'label-message' => 'requestaccount-comments',
 			],
 			'CCemail' => [
 				'type' => 'check',
@@ -49,6 +62,18 @@ class SpecialRequestAccount extends SpecialRequest {
 				'required' => true,
 			]
 		];
+	}
+
+	public function isValidUsername( ?string $username ): Message|true {
+		if ( !$username ) {
+			return $this->msg( 'htmlform-required' );
+		}
+
+		if ( !$this->userNameUtils->isCreatable( $username ) ) {
+			return $this->msg( 'requestaccount-username-invalid' );
+		}
+
+		return true;
 	}
 
 	protected function getRequestTable(): string {
@@ -63,6 +88,9 @@ class SpecialRequestAccount extends SpecialRequest {
 			'request_username' => $data['username'],
 			'request_reason' => $data['reason'],
 			'request_explanation' => $data['explanation'],
+			'request_comments' => $data['comments'],
+			'request_ccemail' => (int)$data['CCemail'],
+			'request_ip' => $this->getRequest()->getIP(),
 			'request_status' => self::STATUS_PENDING,
 		];
 	}

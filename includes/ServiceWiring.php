@@ -16,7 +16,9 @@ return [
 			$services->getJobQueueGroupFactory(),
 			$services->get( 'MirahezeRequestsDatabaseService' ),
 			$services->getUserFactory(),
-			$services->getBlockManager()
+			$services->getBlockManager(),
+			$services->get( 'MirahezeRequestsConfig' ),
+			$services->getUserGroupManager()
 		);
 	},
 	'MirahezeRequestsConfig' => static function ( MediaWikiServices $services ): Config {

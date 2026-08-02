@@ -13,6 +13,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 	private array $actorNameCache = [];
 	private string $username;
 	private string $email;
+	private bool $canSeeIp;
 
 	public function __construct(
 		IContextSource $context,
@@ -21,24 +22,39 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		UserFactory $userFactory,
 		string $requester,
 		string $status,
+		string $type,
 		string $username,
-		string $email
+		string $email,
+		bool $canSeeIp
 
 	) {
-		parent::__construct( $context, $dbService, $linkRenderer, $userFactory, $requester, $status );
 		$this->username = $username;
 		$this->email = $email;
+		$this->canSeeIp = $canSeeIp;
+		parent::__construct( $context, $dbService, $linkRenderer, $userFactory, $requester, $status, $type );
 	}
 
 	/** @inheritDoc */
 	protected function getFieldNames(): array {
-		return [
+		$fields = [
 			'request_timestamp' => $this->msg( 'mirahezerequests-label-requested-date' )->text(),
-			'request_username' => $this->msg( 'requestaccount-username' )->text(),
-			'request_email' => $this->msg( 'requestaccount-email' )->text(),
+			'request_username' => $this->msg( 'requestaccount-username-short' )->text(),
+			'request_email' => $this->msg( 'requestaccount-email-short' )->text(),
 			'request_actor' => $this->msg( 'mirahezerequests-label-requester' )->text(),
-			'request_status' => $this->msg( 'status' )->text(),
 		];
+
+		if ( $this->canSeeIp ) {
+			$fields['request_ip'] = $this->msg( 'mirahezerequests-label-ip' )->text();
+		}
+
+		if ( $this->type === 'closed' ) {
+			$fields['request_completed_timestamp'] = $this->msg( 'mirahezerequests-label-completed-date' )->text();
+			$fields['request_completed_actor'] = $this->msg( 'mirahezerequests-label-donetby' )->text();
+		}
+
+		$fields['request_status'] = $this->msg( 'status' )->text();
+
+		return $fields;
 	}
 
 	private function formatTimestamp( $value ): string {
@@ -58,9 +74,9 @@ class RequestAccountQueuePager extends RequestQueuePager {
 
 	protected function formatRowValue( string $name, $value ): string {
 		return match ( $name ) {
-			'request_timestamp' => $this->formatTimestamp( $value ),
-			'request_username', 'request_email' => htmlspecialchars( $value ),
-			'request_actor' => $this->formatActorName( (int)$value ),
+			'request_timestamp', 'request_completed_timestamp' => $this->formatTimestamp( $value ),
+			'request_username', 'request_email', 'request_ip' => htmlspecialchars( $value ),
+			'request_actor', 'request_completed_actor' => $this->formatActorName( (int)$value ),
 			default => "Unable to format $name",
 		};
 	}
@@ -87,7 +103,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 	}
 
 	protected function getRequestFields(): array {
-		return [
+		$fields = [
 			'request_actor',
 			'request_id',
 			'request_status',
@@ -95,6 +111,17 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			'request_username',
 			'request_email',
 		];
+
+		if ( $this->canSeeIp ) {
+			$fields[] = 'request_ip';
+		}
+
+		if ( $this->type === 'closed' ) {
+			$fields[] = 'request_completed_timestamp';
+			$fields[] = 'request_completed_actor';
+		}
+
+		return $fields;
 	}
 
 	protected function getExtraConds(): array {

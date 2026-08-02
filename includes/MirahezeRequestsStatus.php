@@ -16,6 +16,18 @@ interface MirahezeRequestsStatus {
 
 	public const string STATUS_STARTING = 'starting';
 
+	public const array OPEN_STATUSES = [
+		self::STATUS_PENDING,
+		self::STATUS_STARTING,
+		self::STATUS_INPROGRESS,
+	];
+
+	public const array CLOSED_STATUSES = [
+		self::STATUS_COMPLETE,
+		self::STATUS_DECLINED,
+		self::STATUS_FAILED,
+	];
+
 	public const array HTMLFORMOPTIONS = [
 		'Pending' => self::STATUS_PENDING,
 		'Starting' => self::STATUS_STARTING,

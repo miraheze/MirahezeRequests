@@ -4,65 +4,150 @@ namespace Miraheze\MirahezeRequests\Jobs;
 
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
+use MediaWiki\Config\Config;
 use MediaWiki\JobQueue\Job;
+use MediaWiki\Logging\ManualLogEntry;
+use MediaWiki\Mail\MailAddress;
+use MediaWiki\Mail\UserMailer;
+use MediaWiki\MainConfigNames;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 
 class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 
 	public const string JOB_NAME = 'MirahezeRequestsCreateAccountJob';
-	private readonly string $username;
-	private readonly string $email;
+
+	private readonly int $id;
+	private readonly string $performerName;
 
 	public function __construct(
 		array $params,
 		private readonly UserFactory $userFactory,
 		private readonly AuthManager $authManager,
+		private readonly RequestAccountManager $requestManager,
+		private readonly Config $mainConfig,
 	) {
 		parent::__construct( self::JOB_NAME, $params );
-		$this->username = $params['username'];
-		$this->email = $params['email'];
+		$this->id = $params['id'];
+		$this->performerName = $params['performer'];
 	}
 
 	public function run(): bool {
-		$user = $this->userFactory->newFromName( $this->username );
+		$this->requestManager->getById( $this->id );
 
-		if ( !$user->isRegistered() ) {
-			$user->setEmail( $this->email );
+		$sysUser = User::newSystemUser( 'MirahezeRequests', [ 'steal' => true ] );
+		$performer = $this->userFactory->newFromName( $this->performerName ) ?: $sysUser;
 
-			// TODO: logging
-			$status = $user->addToDatabase();
+		$username = $this->requestManager->getUsername();
+		$email = $this->requestManager->getEmail();
 
-			if ( !$status->isGood() ) {
-				return false;
-			}
+		$user = $this->userFactory->newFromName( $username );
 
-			$req = TemporaryPasswordAuthenticationRequest::newRandom();
-			$newTempPassword = $req->password;
-			$sysUser = User::newSystemUser( 'MirahezeRequests', [ 'steal' => true ] );
+		if ( !$user ) {
+			$this->requestManager->resolve(
+				self::STATUS_FAILED, $performer,
+				wfMessage( 'requestaccount-notes-invalid-username' )->text()
+			);
+			return false;
+		}
 
-			$req->action = AuthManager::ACTION_CHANGE;
-			$req->username = $this->username;
-			$req->mailpassword = false; // send our own custom email
-			$req->caller = $sysUser->getName();
+		if ( $user->isRegistered() ) {
+			// The account already exists, the desired end state is
+			// already satisfied; nothing further to do.
+			$this->requestManager->resolve(
+				self::STATUS_COMPLETE, $performer,
+				wfMessage( 'requestaccount-notes-already-exists' )->text()
+			);
+			return true;
+		}
 
-			$status = $this->authManager->allowsAuthenticationDataChange( $req, false );
+		$user->setEmail( $email );
 
-			if ( !$status->isGood() ) {
-				return false;
-			}
+		$status = $user->addToDatabase();
+		if ( !$status->isGood() ) {
+			$this->requestManager->resolve(
+				self::STATUS_FAILED, $performer,
+				wfMessage( 'requestaccount-notes-creation-failed', $status->getWikiText() )->text()
+			);
+			return false;
+		}
 
-			$this->authManager->changeAuthenticationData( $req );
+		$req = TemporaryPasswordAuthenticationRequest::newRandom();
+		$newTempPassword = $req->password;
 
-			$subjectMessage = wfMessage( 'requestaccount-created-email-title' );
-			$bodyMessage = wfMessage( 'requestaccount-created-email-text', $this->username, $newTempPassword );
+		$req->action = AuthManager::ACTION_CHANGE;
+		$req->username = $username;
+		$req->mailpassword = false; // send our own custom email
+		$req->caller = $sysUser->getName();
 
-			$status = $user->sendMail( $subjectMessage->text(), $bodyMessage->text() );
+		$status = $this->authManager->allowsAuthenticationDataChange( $req, false );
+		if ( !$status->isGood() ) {
+			$this->requestManager->resolve(
+				self::STATUS_FAILED, $performer,
+				wfMessage( 'requestaccount-notes-password-failed' )->text()
+			);
+			return false;
+		}
+
+		$this->authManager->changeAuthenticationData( $req );
+
+		$subjectMessage = wfMessage( 'requestaccount-created-email-title' );
+		$bodyMessage = wfMessage( 'requestaccount-created-email-text', $username, $newTempPassword );
+
+		// Use the site's configured password-sender address, not the
+		// MirahezeRequests system user's own email (which is unset,
+		// since it's an auto-created account with no email configured -
+		// that produced a blank/invalid From header and silently broke
+		// delivery on some mail transports).
+		$from = new MailAddress(
+			$this->mainConfig->get( MainConfigNames::PasswordSender ),
+			wfMessage( 'emailsender' )->inContentLanguage()->text()
+		);
+
+		$mailStatus = UserMailer::send(
+			new MailAddress( $email, $username ),
+			$from,
+			$subjectMessage->text(),
+			$bodyMessage->text()
+		);
+
+		$ccEmail = $this->requestManager->getRequesterCcEmail();
+		if ( $ccEmail && $ccEmail !== $email ) {
+			UserMailer::send(
+				new MailAddress( $ccEmail ),
+				$from,
+				$subjectMessage->text(),
+				$bodyMessage->text()
+			);
+		}
+
+		$logEntry = new ManualLogEntry( 'newusers', 'byemail' );
+		$logEntry->setPerformer( $performer );
+		$logEntry->setTarget( $user->getUserPage() );
+		$logEntry->setComment( '' );
+		$logEntry->setParameters( [ '4::userid' => $user->getId() ] );
+		$logEntry->publish( $logEntry->insert() );
+
+		if ( !$mailStatus->isGood() ) {
+			$this->requestManager->resolve(
+				self::STATUS_COMPLETE, $performer,
+				wfMessage(
+					'requestaccount-notes-created-mail-failed',
+					$mailStatus->getWikiText()
+				)->text()
+			);
 
 			return true;
 		}
-		return false;
+
+		$this->requestManager->resolve(
+			self::STATUS_COMPLETE, $performer,
+			wfMessage( 'requestaccount-notes-created' )->text()
+		);
+
+		return true;
 	}
 
 	public function allowRetries(): false {
