@@ -1,0 +1,6 @@
+CentralAuth:
+  branch: auto
+  repo: auto
+Echo:
+  branch: auto
+  repo: auto
