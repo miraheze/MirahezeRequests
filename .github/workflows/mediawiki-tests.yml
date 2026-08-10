@@ -1,0 +1,79 @@
+name: Call reusable MediaWiki tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  call-mediawiki-tests-workflow:
+    uses: miraheze/.github/.github/workflows/mediawiki-tests.yml@main
+    strategy:
+      matrix:
+        include:
+
+          # Latest MediaWiki stable - PHP 8.4
+          - mw: 'REL1_45'
+            php: 8.4
+            php-docker: 84
+            composer-test: true
+            coverage: true
+            experimental-phan: false
+            experimental-phpunit: false
+
+          # Latest MediaWiki alpha - PHP 8.4
+          - mw: 'REL1_46'
+            php: 8.4
+            php-docker: 84
+            composer-test: false
+            coverage: false
+            experimental-phan: true
+            experimental-phpunit: false
+
+          # Latest MediaWiki master - PHP 8.4
+          - mw: 'master'
+            php: 8.4
+            php-docker: 84
+            composer-test: false
+            coverage: false
+            experimental-phan: true
+            experimental-phpunit: true
+
+    with:
+      mw: ${{ matrix.mw }}
+      php: ${{ matrix.php }}
+      php-docker: ${{ matrix.php-docker }}
+      experimental-phan: ${{ matrix.experimental-phan }}
+      experimental-phpunit: ${{ matrix.experimental-phpunit }}
+      composer-test: ${{ matrix.composer-test }}
+      coverage: ${{ matrix.coverage }}
+
+    secrets: inherit
+
+  notify-irc:
+    needs: call-mediawiki-tests-workflow
+    runs-on: ubuntu-latest
+    if: ${{ always() && github.repository_owner == 'miraheze' && ( github.ref == 'refs/heads/main' || github.event_name == 'pull_request' ) }}
+    steps:
+      - name: succeeded
+        uses: technote-space/workflow-conclusion-action@v3
+      - uses: rectalogic/notify-irc@v2
+        if: env.WORKFLOW_CONCLUSION == 'success'
+        with:
+          channel: "#miraheze-tech-ops"
+          server: "irc.libera.chat"
+          nickname: miraheze-github
+          message: ${{ github.repository }} - ${{ github.actor }} the build passed.
+          sasl_password: ${{ secrets.IRC_MIRAHEZEBOTS }}
+
+      - name: failed
+        uses: technote-space/workflow-conclusion-action@v3
+      - uses: rectalogic/notify-irc@v2
+        if: env.WORKFLOW_CONCLUSION == 'failure'
+        with:
+          channel: "#miraheze-tech-ops"
+          server: "irc.libera.chat"
+          nickname: miraheze-github
+          message: ${{ github.repository }} - ${{ github.actor }} the build has errored.
+          sasl_password: ${{ secrets.IRC_MIRAHEZEBOTS }}
