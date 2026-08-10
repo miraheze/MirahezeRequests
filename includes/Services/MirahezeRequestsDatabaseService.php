@@ -20,10 +20,23 @@ class MirahezeRequestsDatabaseService {
 	}
 
 	/**
-	 * @throws ErrorPageError
+	 * Whether the wiki this code is currently running on is the wiki the
+	 * 'virtual-mirahezerequests' virtual domain resolves to. This works
+	 * regardless of where that domain is physically mapped: it doesn't
+	 * matter whether it points at a shared/central database or falls
+	 * back to the local one, since isCurrentWikiDbDomain() is comparing
+	 * against the domain the connection actually resolved to, not
+	 * against any assumption about the mapping.
 	 */
-	public function isCentralDB(): bool|ErrorPageError {
-		if ( !WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() ) ) {
+	public function isCentralWiki(): bool {
+		return WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() );
+	}
+
+	/**
+	 * @throws ErrorPageError if this isn't the central wiki
+	 */
+	public function isCentralDB(): true {
+		if ( !$this->isCentralWiki() ) {
 			throw new ErrorPageError( 'mirahezerequests-notcentral', 'mirahezerequests-notcentral-text' );
 		}
 		return true;

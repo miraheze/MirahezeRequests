@@ -30,7 +30,6 @@
 	"requestaccount-globalblock-label": "IP is globally blocked",
 	"requestaccount-other-label": "Other",
 	"requestaccountqueue": "Request account queue",
-	"requestdpe": "Request Dormancy Policy Exemption",
 	"logentry-requestaccount-accept": "$1 approved the account request for \"$4\"",
 	"logentry-requestaccount-decline": "$1 declined the account request for \"$4\"",
 	"mirahezerequests-label-completed-date": "Completed",
@@ -39,6 +38,7 @@
 	"mirahezerequests-label-reason": "Reason",
 	"mirahezerequests-label-status": "Status",
 	"mirahezerequests-nopermission": "You do not have permission to view this request.",
+	"mirahezerequests-notfound": "This request does not exist.",
 	"mirahezerequests-notcentral": "Not the central wiki",
 	"mirahezerequests-notcentral-text": "This page is only available on the central requests wiki.",
 	"mirahezerequests-status-complete": "Complete",
@@ -48,6 +48,7 @@
 	"mirahezerequests-status-inprogress": "In progress",
 	"mirahezerequests-status-pending": "Pending",
 	"mirahezerequests-status-starting": "Starting",
+	"mirahezerequests-status-all": "All",
 	"mirahezerequests-tab-closed": "Closed requests",
 	"mirahezerequests-tab-open": "Open requests",
 	"requestaccount-ccemail": "CC me on this request's decision at my account's email address",
@@ -65,6 +66,12 @@
 	"requestaccount-notes-password-failed": "Account creation failed: could not set a temporary password.",
 	"requestaccount-reason-help": "Please select the reason why you were unable to create an account. If the reason you were unable to create an account is not listed in the first two options, please describe your issue there.",
 	"requestaccount-username-help": "Please tell us what username you wish for your user account.",
-	"requestaccount-username-invalid": "This username is invalid or already in use. Please choose a different username.",
-	"requestaccount-username-short": "Username"
+	"requestaccount-username-invalid": "This is not a valid username. Please choose a different username.",
+	"requestaccount-username-taken": "This username is already registered. Please choose a different username.",
+	"requestaccount-username-blacklisted": "This username is not allowed. Please choose a different username.",
+	"requestaccount-username-short": "Username",
+	"action-request-account": "submit an account request",
+	"action-handle-requestaccount": "handle account requests",
+	"right-request-account": "Submit account requests",
+	"right-handle-requestaccount": "Handle account requests"
 }

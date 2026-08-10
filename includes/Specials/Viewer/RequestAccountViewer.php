@@ -11,6 +11,7 @@ use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Message\Message;
 use MediaWiki\SpecialPage\SpecialPage;
 use Miraheze\MirahezeRequests\CodexHTMLFormTabs;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Wikimedia\Codex\Utility\Codex;
 
@@ -23,11 +24,24 @@ class RequestAccountViewer extends RequestViewer {
 	}
 
 	public function getFormDescriptor(): array {
+		if ( !$this->requestManager->exists() ) {
+			$this->context->getOutput()->addHTML(
+				Html::errorBox( $this->context->msg( 'mirahezerequests-notfound' )->escaped() )
+			);
+			return [];
+		}
+
 		$codex = new Codex();
 		$authority = $this->context->getAuthority();
 		$isHandler = $authority->isAllowed( 'handle-requestaccount' );
 
-		if ( !$isHandler ) {
+		// Handlers can view any request; the person who filed the
+		// request can view their own (read-only, no handling controls).
+		// Without this, the link in the "your request has been filed"
+		// success message 403s for anyone who isn't a handler.
+		$isOwner = $this->context->getUser()->equals( $this->requestManager->getRequester() );
+
+		if ( !$isHandler && !$isOwner ) {
 			$this->context->getOutput()->addHTML(
 				Html::errorBox( $this->context->msg( 'mirahezerequests-nopermission' )->escaped() )
 			);
@@ -108,9 +122,9 @@ class RequestAccountViewer extends RequestViewer {
 			];
 		}
 
-		$invalidStatus = $this->requestManager->invalidStatus();
+		$isFinalized = $this->requestManager->isFinalized();
 
-		if ( $invalidStatus ) {
+		if ( $isFinalized ) {
 			$formDescriptor['resolved-info'] = [
 				'type' => 'info',
 				'default' => $this->buildResolvedInfoHtml(),
@@ -143,7 +157,7 @@ class RequestAccountViewer extends RequestViewer {
 				'section' => 'handling',
 			];
 
-			if ( !$invalidStatus ) {
+			if ( !$isFinalized ) {
 				$formDescriptor += [
 					'submit-accept' => [
 						'type' => 'submit',
@@ -239,7 +253,7 @@ class RequestAccountViewer extends RequestViewer {
 	): bool {
 		$out = $this->context->getOutput();
 
-		if ( $this->requestManager->invalidStatus() ) {
+		if ( $this->requestManager->isFinalized() ) {
 			$out->addHTML( Html::errorBox(
 				$this->context->msg( 'mirahezerequests-status-conflict' )->escaped()
 			) );
@@ -253,7 +267,7 @@ class RequestAccountViewer extends RequestViewer {
 			// The job verifies the outcome and sets the real final
 			// status; this is just an in-flight marker so the request
 			// can't be actioned again while it's being processed.
-			$this->requestManager->setStatus( self::STATUS_STARTING );
+			$this->requestManager->setStatus( MirahezeRequestsStatus::Starting->value );
 			$this->requestManager->executeJob( $this->context->getUser() );
 
 			$logEntry = new ManualLogEntry( 'requestaccount', 'accept' );
@@ -269,7 +283,7 @@ class RequestAccountViewer extends RequestViewer {
 		if ( isset( $formData['submit-decline'] ) ) {
 			$this->requestManager->sendDeclineEmail( $formData['submit-decline-reason'] );
 			$this->requestManager->resolve(
-				self::STATUS_DECLINED, $this->context->getUser(), $formData['submit-decline-reason']
+				MirahezeRequestsStatus::Declined->value, $this->context->getUser(), $formData['submit-decline-reason']
 			);
 
 			$logEntry = new ManualLogEntry( 'requestaccount', 'decline' );

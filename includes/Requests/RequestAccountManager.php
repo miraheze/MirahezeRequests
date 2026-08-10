@@ -9,6 +9,8 @@ use MediaWiki\JobQueue\JobQueueGroupFactory;
 use MediaWiki\JobQueue\JobSpecification;
 use MediaWiki\Mail\MailAddress;
 use MediaWiki\Mail\UserMailer;
+use MediaWiki\MainConfigNames;
+use MediaWiki\User\ActorNormalization;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
@@ -27,6 +29,7 @@ class RequestAccountManager extends RequestManager {
 		private readonly BlockManager $blockManager,
 		private readonly Config $config,
 		private readonly UserGroupManager $userGroupManager,
+		private readonly ActorNormalization $actorNormalization,
 	) {
 		parent::__construct(
 			'account',
@@ -52,7 +55,7 @@ class RequestAccountManager extends RequestManager {
 		return (bool)array_intersect( $groups, $userGroups );
 	}
 
-	public function executeJob( User $performer ): void {
+	public function executeJob( UserIdentity $performer ): void {
 		$this->jobQueueGroupFactory->makeJobQueueGroup()->push(
 			new JobSpecification(
 				CreateAccountJob::JOB_NAME,
@@ -65,16 +68,17 @@ class RequestAccountManager extends RequestManager {
 	 * Marks the request as resolved: sets the final status, and records
 	 * when it was resolved, by whom, and any notes on the outcome.
 	 */
-	public function resolve( string $status, User $performer, string $notes = '' ): void {
+	public function resolve( string $status, UserIdentity $performer, string $notes = '' ): void {
 		$dbw = $this->dbService->getDbw();
 		$timestamp = $dbw->timestamp();
+		$performerActorId = $this->actorNormalization->acquireActorId( $performer, $dbw );
 
 		$dbw->newUpdateQueryBuilder()
 			->update( 'account_requests' )
 			->set( [
 				'request_status' => $status,
 				'request_completed_timestamp' => $timestamp,
-				'request_completed_actor' => $performer->getActorId(),
+				'request_completed_actor' => $performerActorId,
 				'request_notes' => $notes,
 			] )
 			->where( [ 'request_id' => $this->getId() ] )
@@ -83,13 +87,12 @@ class RequestAccountManager extends RequestManager {
 
 		$this->row->request_status = $status;
 		$this->row->request_completed_timestamp = $timestamp;
-		$this->row->request_completed_actor = $performer->getActorId();
+		$this->row->request_completed_actor = $performerActorId;
 		$this->row->request_notes = $notes;
 	}
 
 	public function sendDeclineEmail( string $reason ): void {
-		$sysUser = User::newSystemUser( 'MirahezeRequests', [ 'steal' => true ] );
-		$from = MailAddress::newFromUser( $sysUser );
+		$from = $this->getSystemMailAddress();
 
 		$subjectMessage = wfMessage( 'requestaccount-declined-email-title' );
 		$bodyMessage = wfMessage( 'requestaccount-declined-email-text', $reason );
@@ -110,6 +113,20 @@ class RequestAccountManager extends RequestManager {
 				$bodyMessage->text()
 			);
 		}
+	}
+
+	/**
+	 * The address notification emails are sent from. Uses the site's
+	 * configured password-sender address rather than the MirahezeRequests
+	 * system user's own email, which is unset (it's an auto-created
+	 * account with no email configured), so using it directly produces a
+	 * blank/invalid From header and throws when handing the mail off.
+	 */
+	private function getSystemMailAddress(): MailAddress {
+		return new MailAddress(
+			$this->config->get( MainConfigNames::PasswordSender ),
+			wfMessage( 'emailsender' )->inContentLanguage()->text()
+		);
 	}
 
 	/**
@@ -197,11 +214,16 @@ class RequestAccountManager extends RequestManager {
 		return $user !== false && $user->isRegistered();
 	}
 
-	public function invalidStatus(): bool {
+	/**
+	 * Whether the request has already reached a final or in-flight state
+	 * (complete, declined, or starting) and therefore can no longer be
+	 * accepted or declined again.
+	 */
+	public function isFinalized(): bool {
 		return in_array( $this->getStatus(), [
-			MirahezeRequestsStatus::STATUS_COMPLETE,
-			MirahezeRequestsStatus::STATUS_DECLINED,
-			MirahezeRequestsStatus::STATUS_STARTING,
+			MirahezeRequestsStatus::Complete->value,
+			MirahezeRequestsStatus::Declined->value,
+			MirahezeRequestsStatus::Starting->value,
 		], true );
 	}
 }

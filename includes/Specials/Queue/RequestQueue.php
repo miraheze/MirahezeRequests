@@ -7,11 +7,10 @@ use MediaWiki\Html\Html;
 use MediaWiki\Parser\ParserOptions;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\User\UserFactory;
-use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Miraheze\MirahezeRequests\Specials\Viewer\RequestViewer;
 
-abstract class RequestQueue extends SpecialPage implements MirahezeRequestsStatus {
+abstract class RequestQueue extends SpecialPage {
 	public function __construct(
 		string $name,
 		string $right,

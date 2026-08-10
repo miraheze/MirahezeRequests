@@ -11,7 +11,7 @@ use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Wikimedia\Rdbms\IReadableDatabase;
 
-abstract class RequestQueuePager extends TablePager implements MirahezeRequestsStatus {
+abstract class RequestQueuePager extends TablePager {
 	private IReadableDatabase $dbr;
 
 	public function __construct(
@@ -51,8 +51,8 @@ abstract class RequestQueuePager extends TablePager implements MirahezeRequestsS
 			$info['conds']['request_status'] = $this->status;
 		} else {
 			$info['conds']['request_status'] = $this->type === 'closed'
-				? self::CLOSED_STATUSES
-				: self::OPEN_STATUSES;
+				? MirahezeRequestsStatus::CLOSED
+				: MirahezeRequestsStatus::OPEN;
 		}
 
 		return $info;

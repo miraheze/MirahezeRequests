@@ -6,10 +6,9 @@ use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\FormSpecialPage;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
-use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 
-abstract class SpecialRequest extends FormSpecialPage implements MirahezeRequestsStatus {
+abstract class SpecialRequest extends FormSpecialPage {
 	private string $tableName;
 	private int $insertedId = 0;
 
@@ -23,10 +22,16 @@ abstract class SpecialRequest extends FormSpecialPage implements MirahezeRequest
 		parent::__construct( $pageName, $right );
 	}
 
+	/**
+	 * The HTMLForm field descriptors for the request form.
+	 */
 	abstract protected function getFormFields(): array;
 
-	// abstract protected function getRequestTable(): string;
-	abstract protected function getInsertRow( array $data, $timestamp ): array;
+	/**
+	 * Build the database row to insert for a newly-submitted request,
+	 * from the validated form data and the request's timestamp.
+	 */
+	abstract protected function getInsertRow( array $data, string $timestamp ): array;
 
 	public function execute( $par ): void {
 		$this->setParameter( $par );
@@ -41,23 +46,8 @@ abstract class SpecialRequest extends FormSpecialPage implements MirahezeRequest
 	}
 
 	public function onSubmit( array $data ): Status {
-		$token = $this->getRequest()->getVal( 'wpEditToken' );
-		$userToken = $this->getContext()->getCsrfTokenSet();
-		if ( !$userToken->matchToken( $token ) ) {
-			return Status::newFatal( 'sessionfailure' );
-		}
-
-		// Throttle if requested
-		/*if ( $this->getLimiterKey() && $this->getUser()->pingLimiter( $this->getLimiterKey() ) ) {
-			return Status::newFatal( 'actionthrottledtext' );
-		}
-
-		// Allow request-specific validation
-		$status = $this->beforeInsert( $data );
-		if ( !$status->isOK() ) {
-			return $status;
-		}*/
-
+		// HTMLForm already verifies the edit token as part of tryAuthorizedSubmit()
+		// before invoking the submit callback, so no separate check is needed here.
 		$dbw = $this->dbService->getDbw();
 		$timestamp = $dbw->timestamp();
 

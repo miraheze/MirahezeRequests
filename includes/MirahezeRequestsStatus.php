@@ -2,39 +2,46 @@
 
 namespace Miraheze\MirahezeRequests;
 
-interface MirahezeRequestsStatus {
+/**
+ * The possible states a request can be in.
+ */
+enum MirahezeRequestsStatus: string {
 
-	public const string STATUS_COMPLETE = 'complete';
+	case Complete = 'complete';
 
-	public const string STATUS_DECLINED = 'declined';
+	case Declined = 'declined';
 
-	public const string STATUS_FAILED = 'failed';
+	case Failed = 'failed';
 
-	public const string STATUS_INPROGRESS = 'inprogress';
+	case InProgress = 'inprogress';
 
-	public const string STATUS_PENDING = 'pending';
+	case Pending = 'pending';
 
-	public const string STATUS_STARTING = 'starting';
+	case Starting = 'starting';
 
-	public const array OPEN_STATUSES = [
-		self::STATUS_PENDING,
-		self::STATUS_STARTING,
-		self::STATUS_INPROGRESS,
+	/**
+	 * Statuses for requests that are still awaiting action or being
+	 * actively worked on.
+	 */
+	public const array OPEN = [
+		self::Pending->value,
+		self::Starting->value,
+		self::InProgress->value,
 	];
 
-	public const array CLOSED_STATUSES = [
-		self::STATUS_COMPLETE,
-		self::STATUS_DECLINED,
-		self::STATUS_FAILED,
+	/**
+	 * Statuses for requests that have reached a final outcome.
+	 */
+	public const array CLOSED = [
+		self::Complete->value,
+		self::Declined->value,
+		self::Failed->value,
 	];
 
-	public const array HTMLFORMOPTIONS = [
-		'Pending' => self::STATUS_PENDING,
-		'Starting' => self::STATUS_STARTING,
-		'In progress' => self::STATUS_INPROGRESS,
-		'Complete' => self::STATUS_COMPLETE,
-		'Declined' => self::STATUS_DECLINED,
-		'Failed' => self::STATUS_FAILED,
-		'All' => '*',
-	];
+	/**
+	 * The i18n message key used to display this status to users.
+	 */
+	public function getMessageKey(): string {
+		return 'mirahezerequests-status-' . $this->value;
+	}
 }

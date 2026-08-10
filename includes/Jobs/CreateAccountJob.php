@@ -12,10 +12,11 @@ use MediaWiki\Mail\UserMailer;
 use MediaWiki\MainConfigNames;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
+use Miraheze\MirahezeRequests\MirahezeRequestsConstants;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 
-class CreateAccountJob extends Job implements MirahezeRequestsStatus {
+class CreateAccountJob extends Job {
 
 	public const string JOB_NAME = 'MirahezeRequestsCreateAccountJob';
 
@@ -37,7 +38,7 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 	public function run(): bool {
 		$this->requestManager->getById( $this->id );
 
-		$sysUser = User::newSystemUser( 'MirahezeRequests', [ 'steal' => true ] );
+		$sysUser = User::newSystemUser( MirahezeRequestsConstants::SYSTEM_USER, [ 'steal' => true ] );
 		$performer = $this->userFactory->newFromName( $this->performerName ) ?: $sysUser;
 
 		$username = $this->requestManager->getUsername();
@@ -47,7 +48,7 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 
 		if ( !$user ) {
 			$this->requestManager->resolve(
-				self::STATUS_FAILED, $performer,
+				MirahezeRequestsStatus::Failed->value, $performer,
 				wfMessage( 'requestaccount-notes-invalid-username' )->text()
 			);
 			return false;
@@ -57,7 +58,7 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 			// The account already exists, the desired end state is
 			// already satisfied; nothing further to do.
 			$this->requestManager->resolve(
-				self::STATUS_COMPLETE, $performer,
+				MirahezeRequestsStatus::Complete->value, $performer,
 				wfMessage( 'requestaccount-notes-already-exists' )->text()
 			);
 			return true;
@@ -68,8 +69,8 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 		$status = $user->addToDatabase();
 		if ( !$status->isGood() ) {
 			$this->requestManager->resolve(
-				self::STATUS_FAILED, $performer,
-				wfMessage( 'requestaccount-notes-creation-failed', $status->getWikiText() )->text()
+				MirahezeRequestsStatus::Failed->value, $performer,
+				wfMessage( 'requestaccount-notes-creation-failed', $status->getMessage()->text() )->text()
 			);
 			return false;
 		}
@@ -85,7 +86,7 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 		$status = $this->authManager->allowsAuthenticationDataChange( $req, false );
 		if ( !$status->isGood() ) {
 			$this->requestManager->resolve(
-				self::STATUS_FAILED, $performer,
+				MirahezeRequestsStatus::Failed->value, $performer,
 				wfMessage( 'requestaccount-notes-password-failed' )->text()
 			);
 			return false;
@@ -132,10 +133,10 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 
 		if ( !$mailStatus->isGood() ) {
 			$this->requestManager->resolve(
-				self::STATUS_COMPLETE, $performer,
+				MirahezeRequestsStatus::Complete->value, $performer,
 				wfMessage(
 					'requestaccount-notes-created-mail-failed',
-					$mailStatus->getWikiText()
+					$mailStatus->getMessage()->text()
 				)->text()
 			);
 
@@ -143,7 +144,7 @@ class CreateAccountJob extends Job implements MirahezeRequestsStatus {
 		}
 
 		$this->requestManager->resolve(
-			self::STATUS_COMPLETE, $performer,
+			MirahezeRequestsStatus::Complete->value, $performer,
 			wfMessage( 'requestaccount-notes-created' )->text()
 		);
 

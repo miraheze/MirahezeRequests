@@ -47,8 +47,8 @@ class PurgeOldRequestIPs extends Maintenance {
 		$cutoff = $dbw->timestamp( time() - ( $retentionDays * 86400 ) );
 
 		$conds = [
-			'request_timestamp < ' . $dbw->addQuotes( $cutoff ),
-			'request_ip != ' . $dbw->addQuotes( '' ),
+			$dbw->expr( 'request_timestamp', '<', $cutoff ),
+			$dbw->expr( 'request_ip', '!=', '' ),
 		];
 
 		$rowCount = (int)$dbw->newSelectQueryBuilder()

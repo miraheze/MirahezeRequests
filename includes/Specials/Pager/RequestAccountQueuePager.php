@@ -5,9 +5,9 @@ namespace Miraheze\MirahezeRequests\Specials\Pager;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\User\UserFactory;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 
-/* this is rough and very very badly needs factories and proper methods */
 class RequestAccountQueuePager extends RequestQueuePager {
 
 	private array $actorNameCache = [];
@@ -87,13 +87,15 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			return $this->msg( $msgKey )->text();
 		}
 
+		// Fallback only reached if the message above is missing; not
+		// translated on purpose, since that indicates a broken i18n setup.
 		return match ( $status ) {
-			self::STATUS_PENDING => 'Pending',
-			self::STATUS_STARTING => 'Starting',
-			self::STATUS_INPROGRESS => 'In progress',
-			self::STATUS_COMPLETE => 'Complete',
-			self::STATUS_DECLINED => 'Declined',
-			self::STATUS_FAILED => 'Failed',
+			MirahezeRequestsStatus::Pending->value => 'Pending',
+			MirahezeRequestsStatus::Starting->value => 'Starting',
+			MirahezeRequestsStatus::InProgress->value => 'In progress',
+			MirahezeRequestsStatus::Complete->value => 'Complete',
+			MirahezeRequestsStatus::Declined->value => 'Declined',
+			MirahezeRequestsStatus::Failed->value => 'Failed',
 			default => $status,
 		};
 	}
