@@ -39,11 +39,9 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	/**
-	 * Whether the given user is allowed to see requesters' IP addresses.
-	 * Controlled by $wgMirahezeRequestsIPVisibilityGroups: if empty, this
-	 * is always false (nobody can see IPs until the setting is actually
-	 * configured); if set, the user must be in one of the configured
-	 * groups (the handle-requestaccount right alone is not enough).
+	 * Whether $user can see requesters' IP addresses. Controlled by
+	 * $wgMirahezeRequestsIPVisibilityGroups: empty means nobody can,
+	 * otherwise the user must be in one of the configured groups.
 	 */
 	public function canSeeIp( UserIdentity $user ): bool {
 		$groups = $this->config->get( ConfigNames::IPVisibilityGroups );
@@ -68,7 +66,7 @@ class RequestAccountManager extends RequestManager {
 	 * Marks the request as resolved: sets the final status, and records
 	 * when it was resolved, by whom, and any notes on the outcome.
 	 */
-	public function resolve( string $status, UserIdentity $performer, string $notes = '' ): void {
+	public function resolve( string $status, UserIdentity $performer, string $notes ): void {
 		$dbw = $this->dbService->getDbw();
 		$timestamp = $dbw->timestamp();
 		$performerActorId = $this->actorNormalization->acquireActorId( $performer, $dbw );
@@ -97,6 +95,8 @@ class RequestAccountManager extends RequestManager {
 		$subjectMessage = wfMessage( 'requestaccount-declined-email-title' );
 		$bodyMessage = wfMessage( 'requestaccount-declined-email-text', $reason );
 
+		// Plain-text mail body: not an XSS risk.
+		// @phan-suppress-next-line SecurityCheck-XSS
 		UserMailer::send(
 			new MailAddress( $this->getEmail(), $this->getUsername() ),
 			$from,
@@ -106,6 +106,7 @@ class RequestAccountManager extends RequestManager {
 
 		$ccEmail = $this->getRequesterCcEmail();
 		if ( $ccEmail && $ccEmail !== $this->getEmail() ) {
+			// @phan-suppress-next-line SecurityCheck-XSS
 			UserMailer::send(
 				new MailAddress( $ccEmail ),
 				$from,
@@ -116,11 +117,8 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	/**
-	 * The address notification emails are sent from. Uses the site's
-	 * configured password-sender address rather than the MirahezeRequests
-	 * system user's own email, which is unset (it's an auto-created
-	 * account with no email configured), so using it directly produces a
-	 * blank/invalid From header and throws when handing the mail off.
+	 * $wgPasswordSender, not the system user's own email (which is
+	 * unset), since that produced a blank From header and threw.
 	 */
 	private function getSystemMailAddress(): MailAddress {
 		return new MailAddress(
@@ -130,9 +128,8 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	/**
-	 * The requester's own account email, to CC on the accept/decline
-	 * notification, if they opted in when submitting the request and
-	 * are a logged-in user with a confirmed email address.
+	 * The requester's account email, for CC'ing the decision, if they
+	 * opted in and have a confirmed email.
 	 */
 	public function getRequesterCcEmail(): ?string {
 		if ( !$this->wantsCcEmail() ) {
@@ -211,13 +208,12 @@ class RequestAccountManager extends RequestManager {
 
 	public function userExists(): bool {
 		$user = $this->userFactory->newFromName( $this->getUsername() );
-		return $user !== false && $user->isRegistered();
+		return $user !== null && $user->isRegistered();
 	}
 
 	/**
-	 * Whether the request has already reached a final or in-flight state
-	 * (complete, declined, or starting) and therefore can no longer be
-	 * accepted or declined again.
+	 * Whether the request is complete, declined, or starting, and so
+	 * can no longer be accepted or declined again.
 	 */
 	public function isFinalized(): bool {
 		return in_array( $this->getStatus(), [

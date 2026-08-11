@@ -2,8 +2,8 @@
 
 namespace Miraheze\MirahezeRequests\Specials\Queue;
 
-use HTMLForm;
 use MediaWiki\Html\Html;
+use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Parser\ParserOptions;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\User\UserFactory;

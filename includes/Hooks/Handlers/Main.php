@@ -25,9 +25,7 @@ class Main implements
 			return;
 		}
 
-		// 200 is already used by Extension:ImportDump; pick an ID that
-		// doesn't collide with any other block-action registered on
-		// Miraheze wikis.
+		// 200 is used by Extension:ImportDump.
 		$actions['request-account'] = 250;
 	}
 

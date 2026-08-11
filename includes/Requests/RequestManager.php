@@ -21,7 +21,7 @@ abstract class RequestManager {
 		private readonly UserFactory $userFactory,
 	) {
 		$this->dbw = $this->dbService->getDbw();
-		$this->table = $this->name . '_requests';
+		$this->table = $name . '_requests';
 	}
 
 	public function getById( int $requestID ): void {

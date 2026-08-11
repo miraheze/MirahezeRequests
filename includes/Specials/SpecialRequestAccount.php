@@ -72,14 +72,11 @@ class SpecialRequestAccount extends SpecialRequest {
 	}
 
 	/**
-	 * Runs the actual username validation and returns the result as a
-	 * StatusValue, so the checks themselves stay independent of HTMLForm
-	 * and are easier to test/reuse. isValidUsername() below adapts the
-	 * result to what HTMLForm's validation-callback expects.
+	 * Runs the username checks and returns the result as a StatusValue;
+	 * isValidUsername() below adapts it for HTMLForm.
 	 */
 	private function validateUsername( ?string $username ): StatusValue {
-		// Deliberately not `!$username`: that is also true for the
-		// string "0", which is a legal (if unusual) username.
+		// Not `!$username`: also true for "0", a legal username.
 		if ( $username === null || $username === '' ) {
 			return StatusValue::newFatal( 'htmlform-required' );
 		}
@@ -105,13 +102,13 @@ class SpecialRequestAccount extends SpecialRequest {
 	}
 
 	/**
-	 * Checks the username against Extension:TitleBlacklist (which also
-	 * covers the global title blacklist, when configured as a source)
-	 * and Extension:AntiSpoof, if either is installed. Both are optional
-	 * dependencies: nothing here requires them to be present.
+	 * Checks Extension:TitleBlacklist and Extension:AntiSpoof, if
+	 * installed. Both are optional dependencies.
 	 */
 	private function isBlacklisted( Title $title ): bool {
+		// @phan-suppress-next-line PhanUndeclaredClassReference,PhanUndeclaredClassMethod
 		if ( class_exists( \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::class ) ) {
+			// @phan-suppress-next-line PhanUndeclaredClassMethod
 			$blacklist = \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::singleton()
 				->userCannot( $title, $this->getUser(), 'create' );
 			if ( $blacklist ) {
@@ -119,7 +116,9 @@ class SpecialRequestAccount extends SpecialRequest {
 			}
 		}
 
+		// @phan-suppress-next-line PhanUndeclaredClassReference,PhanUndeclaredClassMethod
 		if ( class_exists( \MediaWiki\Extension\AntiSpoof\SpoofUser::class ) ) {
+			// @phan-suppress-next-line PhanUndeclaredClassMethod
 			$spoofUser = new \MediaWiki\Extension\AntiSpoof\SpoofUser( $title->getText() );
 			if ( $spoofUser->getConflicts() ) {
 				return true;
@@ -135,9 +134,7 @@ class SpecialRequestAccount extends SpecialRequest {
 			return true;
 		}
 
-		// getMessages() is typed MessageSpecifier[], not Message[], so
-		// normalize explicitly rather than assuming what it returns -
-		// HTMLForm's validation-callback contract wants a real Message.
+		// getMessages() is typed MessageSpecifier[], not Message[].
 		return Message::newFromSpecifier( $status->getMessages()[0] );
 	}
 

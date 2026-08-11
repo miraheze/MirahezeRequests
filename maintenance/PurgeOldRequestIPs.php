@@ -2,7 +2,7 @@
 
 namespace Miraheze\MirahezeRequests\Maintenance;
 
-use Maintenance;
+use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\MediaWikiServices;
 use Miraheze\MirahezeRequests\ConfigNames;
 

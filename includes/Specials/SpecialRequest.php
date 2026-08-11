@@ -46,8 +46,7 @@ abstract class SpecialRequest extends FormSpecialPage {
 	}
 
 	public function onSubmit( array $data ): Status {
-		// HTMLForm already verifies the edit token as part of tryAuthorizedSubmit()
-		// before invoking the submit callback, so no separate check is needed here.
+		// HTMLForm already checks the edit token before calling this.
 		$dbw = $this->dbService->getDbw();
 		$timestamp = $dbw->timestamp();
 

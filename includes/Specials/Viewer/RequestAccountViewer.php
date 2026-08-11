@@ -35,10 +35,8 @@ class RequestAccountViewer extends RequestViewer {
 		$authority = $this->context->getAuthority();
 		$isHandler = $authority->isAllowed( 'handle-requestaccount' );
 
-		// Handlers can view any request; the person who filed the
-		// request can view their own (read-only, no handling controls).
-		// Without this, the link in the "your request has been filed"
-		// success message 403s for anyone who isn't a handler.
+		// Handlers can view any request; the requester can view their
+		// own, read-only - otherwise the "request filed" success link 403s.
 		$isOwner = $this->context->getUser()->equals( $this->requestManager->getRequester() );
 
 		if ( !$isHandler && !$isOwner ) {
@@ -247,6 +245,10 @@ class RequestAccountViewer extends RequestViewer {
 		return true;
 	}
 
+	/**
+	 * @phan-suppress-next-line PhanUnusedProtectedMethodParameter $form
+	 *   is required to match HTMLForm's submit-callback signature
+	 */
 	protected function submitForm(
 		array $formData,
 		HTMLForm $form,

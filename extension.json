@@ -33,7 +33,8 @@
 				"UserFactory",
 				"AuthManager",
 				"RequestAccountManager",
-				"MainConfig"
+				"MainConfig",
+				"FormatterFactory"
 			],
 			"needsPage": false
 		}

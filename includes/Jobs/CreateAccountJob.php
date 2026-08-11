@@ -5,7 +5,9 @@ namespace Miraheze\MirahezeRequests\Jobs;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\TemporaryPasswordAuthenticationRequest;
 use MediaWiki\Config\Config;
+use MediaWiki\Context\RequestContext;
 use MediaWiki\JobQueue\Job;
+use MediaWiki\Language\FormatterFactory;
 use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Mail\MailAddress;
 use MediaWiki\Mail\UserMailer;
@@ -29,6 +31,7 @@ class CreateAccountJob extends Job {
 		private readonly AuthManager $authManager,
 		private readonly RequestAccountManager $requestManager,
 		private readonly Config $mainConfig,
+		private readonly FormatterFactory $formatterFactory,
 	) {
 		parent::__construct( self::JOB_NAME, $params );
 		$this->id = $params['id'];
@@ -68,9 +71,13 @@ class CreateAccountJob extends Job {
 
 		$status = $user->addToDatabase();
 		if ( !$status->isGood() ) {
+			$statusFormatter = $this->formatterFactory->getStatusFormatter( RequestContext::getMain() );
 			$this->requestManager->resolve(
 				MirahezeRequestsStatus::Failed->value, $performer,
-				wfMessage( 'requestaccount-notes-creation-failed', $status->getMessage()->text() )->text()
+				wfMessage(
+					'requestaccount-notes-creation-failed',
+					$statusFormatter->getMessage( $status )->text()
+				)->text()
 			);
 			return false;
 		}
@@ -97,16 +104,15 @@ class CreateAccountJob extends Job {
 		$subjectMessage = wfMessage( 'requestaccount-created-email-title' );
 		$bodyMessage = wfMessage( 'requestaccount-created-email-text', $username, $newTempPassword );
 
-		// Use the site's configured password-sender address, not the
-		// MirahezeRequests system user's own email (which is unset,
-		// since it's an auto-created account with no email configured -
-		// that produced a blank/invalid From header and silently broke
-		// delivery on some mail transports).
+		// $wgPasswordSender, not the system user's own email (unset -
+		// that broke delivery on some mail transports).
 		$from = new MailAddress(
 			$this->mainConfig->get( MainConfigNames::PasswordSender ),
 			wfMessage( 'emailsender' )->inContentLanguage()->text()
 		);
 
+		// Plain-text mail body: not an XSS risk.
+		// @phan-suppress-next-line SecurityCheck-XSS
 		$mailStatus = UserMailer::send(
 			new MailAddress( $email, $username ),
 			$from,
@@ -116,6 +122,7 @@ class CreateAccountJob extends Job {
 
 		$ccEmail = $this->requestManager->getRequesterCcEmail();
 		if ( $ccEmail && $ccEmail !== $email ) {
+			// @phan-suppress-next-line SecurityCheck-XSS
 			UserMailer::send(
 				new MailAddress( $ccEmail ),
 				$from,
@@ -132,11 +139,12 @@ class CreateAccountJob extends Job {
 		$logEntry->publish( $logEntry->insert() );
 
 		if ( !$mailStatus->isGood() ) {
+			$statusFormatter = $this->formatterFactory->getStatusFormatter( RequestContext::getMain() );
 			$this->requestManager->resolve(
 				MirahezeRequestsStatus::Complete->value, $performer,
 				wfMessage(
 					'requestaccount-notes-created-mail-failed',
-					$mailStatus->getMessage()->text()
+					$statusFormatter->getMessage( $mailStatus )->text()
 				)->text()
 			);
 
