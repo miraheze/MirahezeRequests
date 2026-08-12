@@ -20,10 +20,18 @@ class MirahezeRequestsDatabaseService {
 	}
 
 	/**
-	 * @throws ErrorPageError
+	 * Whether this wiki is the one the virtual-mirahezerequests
+	 * domain resolves to, wherever that domain is physically mapped.
 	 */
-	public function isCentralDB(): bool|ErrorPageError {
-		if ( !WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() ) ) {
+	public function isCentralWiki(): bool {
+		return WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() );
+	}
+
+	/**
+	 * @throws ErrorPageError if this isn't the central wiki
+	 */
+	public function isCentralDB(): true {
+		if ( !$this->isCentralWiki() ) {
 			throw new ErrorPageError( 'mirahezerequests-notcentral', 'mirahezerequests-notcentral-text' );
 		}
 		return true;

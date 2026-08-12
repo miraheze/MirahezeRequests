@@ -11,7 +11,7 @@ use Wikimedia\Rdbms\Platform\ISQLPlatform;
 
 abstract class RequestManager {
 	private IDatabase $dbw;
-	protected stdClass $row;
+	protected ?stdClass $row = null;
 	private int $Id;
 	private string $table;
 
@@ -21,7 +21,7 @@ abstract class RequestManager {
 		private readonly UserFactory $userFactory,
 	) {
 		$this->dbw = $this->dbService->getDbw();
-		$this->table = $this->name . '_requests';
+		$this->table = $name . '_requests';
 	}
 
 	public function getById( int $requestID ): void {
@@ -32,7 +32,15 @@ abstract class RequestManager {
 			->from( $this->table )
 			->where( [ 'request_id' => $requestID ] )
 			->caller( __METHOD__ )
-			->fetchRow();
+			->fetchRow() ?: null;
+	}
+
+	public function exists(): bool {
+		return $this->row !== null;
+	}
+
+	public function getId(): int {
+		return $this->Id;
 	}
 
 	public function getStatus() {
@@ -54,5 +62,9 @@ abstract class RequestManager {
 			->where( [ 'request_id' => $this->Id ] )
 			->caller( __METHOD__ )
 			->execute();
+
+		if ( $this->row !== null ) {
+			$this->row->request_status = $status;
+		}
 	}
 }

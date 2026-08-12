@@ -2,37 +2,33 @@
 -- Source: sql/tables.json
 -- Do not modify this file directly.
 -- See https://www.mediawiki.org/wiki/Manual:Schema_changes
-CREATE TABLE /*_*/renamewiki_requests (
+CREATE TABLE /*_*/account_requests (
   request_id BIGINT UNSIGNED AUTO_INCREMENT NOT NULL,
   request_actor BIGINT UNSIGNED NOT NULL,
   request_timestamp BINARY(14) NOT NULL,
-  request_oldwiki VARCHAR(64) NOT NULL,
-  request_newwiki VARCHAR(64) NOT NULL,
-  request_reason BLOB NOT NULL,
+  request_email VARCHAR(255) NOT NULL,
+  request_username VARCHAR(255) NOT NULL,
+  request_reason ENUM(
+    'globalblock', 'abusefilter', 'captcha', 'other'
+  ) NOT NULL,
+  request_explanation MEDIUMBLOB NOT NULL,
   request_status ENUM(
     'complete', 'declined', 'failed',
     'inprogress', 'pending', 'starting'
   ) NOT NULL,
   request_locked TINYINT UNSIGNED DEFAULT 0 NOT NULL,
-  request_private TINYINT UNSIGNED DEFAULT 0 NOT NULL,
-  INDEX request_actor_timestamp (
+  request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
+  request_comments MEDIUMBLOB DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL,
+  request_completed_timestamp BINARY(14) DEFAULT NULL,
+  request_completed_actor BIGINT UNSIGNED DEFAULT NULL,
+  request_notes BLOB DEFAULT '' NOT NULL,
+  INDEX account_request_actor_timestamp (
     request_actor, request_timestamp
   ),
-  INDEX request_timestamp (request_timestamp),
-  INDEX request_oldwiki (request_oldwiki),
-  INDEX request_newwiki (request_newwiki),
-  INDEX request_status (request_status),
+  INDEX account_request_timestamp (request_timestamp),
+  INDEX account_request_email (request_email),
+  INDEX account_request_username (request_username),
+  INDEX account_request_status (request_status),
   PRIMARY KEY(request_id)
-) /*$wgDBTableOptions*/;
-
-
-CREATE TABLE /*_*/renamewiki_request_comments (
-  request_comment_id BIGINT UNSIGNED AUTO_INCREMENT NOT NULL,
-  request_id BIGINT UNSIGNED NOT NULL,
-  request_comment_actor BIGINT UNSIGNED NOT NULL,
-  request_comment_timestamp BINARY(14) NOT NULL,
-  request_comment_text BLOB NOT NULL,
-  INDEX request_id (request_id),
-  INDEX request_comment_timestamp (request_comment_timestamp),
-  PRIMARY KEY(request_comment_id)
 ) /*$wgDBTableOptions*/;

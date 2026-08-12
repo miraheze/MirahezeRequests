@@ -9,15 +9,7 @@ namespace Miraheze\MirahezeRequests;
  */
 class ConfigNames {
 
-	public const DatabaseSuffix = 'MirahezeRequestsDatabaseSuffix';
+	public const IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
 
-	public const EnableAutomatedJob = 'RenameWikiEnableAutomatedJob';
-
-	public const HelpUrl = 'RenameWikiHelpUrl';
-
-	public const ScriptCommand = 'RenameWikiScriptCommand';
-
-	public const UsersNotifiedOnAllRequests = 'RenameWikiUsersNotifiedOnAllRequests';
-
-	public const UsersNotifiedOnFailedRenameWikis = 'RenameWikiUsersNotifiedOnFailedRenameWikis';
+	public const IPRetentionDays = 'MirahezeRequestsIPRetentionDays';
 }

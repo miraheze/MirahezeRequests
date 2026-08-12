@@ -2,37 +2,32 @@
 -- Source: sql/tables.json
 -- Do not modify this file directly.
 -- See https://www.mediawiki.org/wiki/Manual:Schema_changes
-CREATE TABLE /*_*/renamewiki_requests (
+CREATE TABLE /*_*/account_requests (
   request_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
   request_actor BIGINT UNSIGNED NOT NULL,
   request_timestamp BLOB NOT NULL,
-  request_source VARCHAR(255) NOT NULL,
-  request_target VARCHAR(64) NOT NULL,
-  request_reason BLOB NOT NULL,
+  request_email VARCHAR(255) NOT NULL,
+  request_username VARCHAR(255) NOT NULL,
+  request_reason TEXT NOT NULL,
+  request_explanation BLOB NOT NULL,
   request_status TEXT NOT NULL,
   request_locked SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
-  request_private SMALLINT UNSIGNED DEFAULT 0 NOT NULL
+  request_ccemail SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
+  request_comments BLOB DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL,
+  request_completed_timestamp BLOB DEFAULT NULL,
+  request_completed_actor BIGINT UNSIGNED DEFAULT NULL,
+  request_notes BLOB DEFAULT '' NOT NULL
 );
 
-CREATE INDEX request_actor_timestamp ON /*_*/renamewiki_requests (
+CREATE INDEX account_request_actor_timestamp ON /*_*/account_requests (
   request_actor, request_timestamp
 );
 
-CREATE INDEX request_timestamp ON /*_*/renamewiki_requests (request_timestamp);
+CREATE INDEX account_request_timestamp ON /*_*/account_requests (request_timestamp);
 
-CREATE INDEX request_target ON /*_*/renamewiki_requests (request_target);
+CREATE INDEX account_request_email ON /*_*/account_requests (request_email);
 
-CREATE INDEX request_status ON /*_*/renamewiki_requests (request_status);
+CREATE INDEX account_request_username ON /*_*/account_requests (request_username);
 
-
-CREATE TABLE /*_*/renamewiki_request_comments (
-  request_comment_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  request_id BIGINT UNSIGNED NOT NULL,
-  request_comment_actor BIGINT UNSIGNED NOT NULL,
-  request_comment_timestamp BLOB NOT NULL,
-  request_comment_text BLOB NOT NULL
-);
-
-CREATE INDEX request_id ON /*_*/renamewiki_request_comments (request_id);
-
-CREATE INDEX request_comment_timestamp ON /*_*/renamewiki_request_comments (request_comment_timestamp);
+CREATE INDEX account_request_status ON /*_*/account_requests (request_status);

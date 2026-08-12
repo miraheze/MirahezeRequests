@@ -2,35 +2,44 @@
 
 namespace Miraheze\MirahezeRequests\Specials;
 
+use MediaWiki\Message\Message;
+use MediaWiki\Title\Title;
+use MediaWiki\User\CentralId\CentralIdLookup;
+use MediaWiki\User\UserFactory;
+use MediaWiki\User\UserNameUtils;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use StatusValue;
 
 class SpecialRequestAccount extends SpecialRequest {
 
-	public function __construct( MirahezeRequestsDatabaseService $dbService	) {
-		parent::__construct( 'RequestAccount', 'request-account', $dbService );
+	public function __construct(
+		MirahezeRequestsDatabaseService $dbService,
+		private readonly UserNameUtils $userNameUtils,
+		private readonly UserFactory $userFactory,
+		private readonly CentralIdLookup $centralIdLookup,
+	) {
+		parent::__construct( 'Account', 'request-account', $dbService );
 	}
 
 	protected function getFormFields(): array {
 		return [
 			'email' => [
-				'type' => 'text',
+				'type' => 'email',
 				'label-message' => 'requestaccount-email',
-				'required' => true,
-			],
-			'username' => [
-				'type' => 'text',
-				'label-message' => 'requestaccount-username',
 				'required' => true,
 			],
 			'reason' => [
 				'type' => 'radio',
 				'label-message' => 'requestaccount-reason',
+				'help-message' => 'requestaccount-reason-help',
 				'options-messages' => [
+					'requestaccount-other-label' => 'other',
 					'requestaccount-abusefilter-label' => 'abusefilter',
 					'requestaccount-captcha-label' => 'captcha',
 					'requestaccount-globalblock-label' => 'globalblock',
-					'requestaccount-other-label' => 'other',
 				],
+				'default' => 'other',
 				'required' => true,
 			],
 			'explanation' => [
@@ -38,6 +47,17 @@ class SpecialRequestAccount extends SpecialRequest {
 				'label-message' => 'requestaccount-explanation',
 				'help-message' => 'requestaccount-explanation-help',
 				'required' => true,
+			],
+			'username' => [
+				'type' => 'text',
+				'label-message' => 'requestaccount-username',
+				'help-message' => 'requestaccount-username-help',
+				'required' => true,
+				'validation-callback' => $this->isValidUsername( ... ),
+			],
+			'comments' => [
+				'type' => 'textarea',
+				'label-message' => 'requestaccount-comments',
 			],
 			'CCemail' => [
 				'type' => 'check',
@@ -51,11 +71,72 @@ class SpecialRequestAccount extends SpecialRequest {
 		];
 	}
 
-	protected function getRequestTable(): string {
-		return 'account_requests';
+	/**
+	 * Runs the username checks and returns the result as a StatusValue;
+	 * isValidUsername() below adapts it for HTMLForm.
+	 */
+	private function validateUsername( ?string $username ): StatusValue {
+		// Not `!$username`: also true for "0", a legal username.
+		if ( $username === null || $username === '' ) {
+			return StatusValue::newFatal( 'htmlform-required' );
+		}
+
+		if ( !$this->userNameUtils->isCreatable( $username ) ) {
+			return StatusValue::newFatal( 'requestaccount-username-invalid' );
+		}
+
+		if ( $this->userFactory->newFromName( $username )?->isRegistered() ) {
+			return StatusValue::newFatal( 'requestaccount-username-taken' );
+		}
+
+		if ( $this->centralIdLookup->centralIdFromName( $username ) !== 0 ) {
+			return StatusValue::newFatal( 'requestaccount-username-taken' );
+		}
+
+		$title = Title::makeTitleSafe( NS_USER, $username );
+		if ( $title && $this->isBlacklisted( $title ) ) {
+			return StatusValue::newFatal( 'requestaccount-username-blacklisted' );
+		}
+
+		return StatusValue::newGood();
 	}
 
-	protected function getInsertRow( array $data, $timestamp ): array {
+	/**
+	 * Checks Extension:TitleBlacklist and Extension:AntiSpoof, if
+	 * installed. Both are optional dependencies.
+	 *
+	 * @suppress PhanUndeclaredClassReference,PhanUndeclaredClassMethod
+	 */
+	private function isBlacklisted( Title $title ): bool {
+		if ( class_exists( \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::class ) ) {
+			$blacklist = \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::singleton()
+				->userCannot( $title, $this->getUser(), 'create' );
+			if ( $blacklist ) {
+				return true;
+			}
+		}
+
+		if ( class_exists( \MediaWiki\Extension\AntiSpoof\SpoofUser::class ) ) {
+			$spoofUser = new \MediaWiki\Extension\AntiSpoof\SpoofUser( $title->getText() );
+			if ( $spoofUser->getConflicts() ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	public function isValidUsername( ?string $username ): Message|true {
+		$status = $this->validateUsername( $username );
+		if ( $status->isGood() ) {
+			return true;
+		}
+
+		// getMessages() is typed MessageSpecifier[], not Message[].
+		return Message::newFromSpecifier( $status->getMessages()[0] );
+	}
+
+	protected function getInsertRow( array $data, string $timestamp ): array {
 		return [
 			'request_actor' => $this->getUser()->getActorId(),
 			'request_timestamp' => $timestamp,
@@ -63,7 +144,10 @@ class SpecialRequestAccount extends SpecialRequest {
 			'request_username' => $data['username'],
 			'request_reason' => $data['reason'],
 			'request_explanation' => $data['explanation'],
-			'request_status' => self::STATUS_PENDING,
+			'request_comments' => $data['comments'],
+			'request_ccemail' => (int)$data['CCemail'],
+			'request_ip' => $this->getRequest()->getIP(),
+			'request_status' => MirahezeRequestsStatus::Pending->value,
 		];
 	}
 }

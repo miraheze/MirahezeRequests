@@ -3,6 +3,7 @@
 namespace Miraheze\MirahezeRequests\Specials\Queue;
 
 use MediaWiki\User\UserFactory;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Miraheze\MirahezeRequests\Specials\Pager\RequestAccountQueuePager;
@@ -45,6 +46,13 @@ class SpecialRequestAccountQueue extends RequestQueue {
 	}
 
 	protected function buildFilterFormDescriptor( array $filters ): array {
+		// Message-based so option labels are actually translatable,
+		// rather than a hardcoded English string per status.
+		$statusOptions = [ 'mirahezerequests-status-all' => '*' ];
+		foreach ( MirahezeRequestsStatus::cases() as $case ) {
+			$statusOptions[$case->getMessageKey()] = $case->value;
+		}
+
 		return [
 			'info' => [
 				'type' => 'info',
@@ -53,13 +61,13 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			'username' => [
 				'type' => 'text',
 				'name' => 'username',
-				'label-message' => 'requestaccount-username',
+				'label-message' => 'requestaccount-username-short',
 				'default' => $filters['username'],
 			],
 			'email' => [
 				'type' => 'text',
 				'name' => 'email',
-				'label-message' => 'requestaccount-email',
+				'label-message' => 'requestaccount-email-short',
 				'default' => $filters['email'],
 			],
 			'requester' => [
@@ -73,13 +81,15 @@ class SpecialRequestAccountQueue extends RequestQueue {
 				'type' => 'select',
 				'name' => 'status',
 				'label-message' => 'status',
-				'options' => self::HTMLFORMOPTIONS,
-				'default' => $filters['status'] ?: self::STATUS_PENDING,
+				'options-messages' => $statusOptions,
+				'default' => $filters['status'] ?: '*',
 			],
 		];
 	}
 
-	protected function buildPager( array $filters ): RequestAccountQueuePager {
+	protected function buildPager( array $filters, string $type ): RequestAccountQueuePager {
+		$canSeeIp = $this->requestManager->canSeeIp( $this->getUser() );
+
 		return new RequestAccountQueuePager(
 			$this->getContext(),
 			$this->dbService,
@@ -87,8 +97,10 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$this->userFactory,
 			$filters['requester'],
 			$filters['status'],
+			$type,
 			$filters['username'],
-			$filters['email']
+			$filters['email'],
+			$canSeeIp
 		);
 	}
 }

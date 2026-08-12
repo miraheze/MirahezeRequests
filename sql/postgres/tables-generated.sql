@@ -2,39 +2,33 @@
 -- Source: sql/tables.json
 -- Do not modify this file directly.
 -- See https://www.mediawiki.org/wiki/Manual:Schema_changes
-CREATE TABLE renamewiki_requests (
+CREATE TABLE account_requests (
   request_id BIGSERIAL NOT NULL,
   request_actor BIGINT NOT NULL,
   request_timestamp TIMESTAMPTZ NOT NULL,
-  request_source VARCHAR(255) NOT NULL,
-  request_target VARCHAR(64) NOT NULL,
+  request_email VARCHAR(255) NOT NULL,
+  request_username VARCHAR(255) NOT NULL,
   request_reason TEXT NOT NULL,
+  request_explanation TEXT NOT NULL,
   request_status TEXT NOT NULL,
   request_locked SMALLINT DEFAULT 0 NOT NULL,
-  request_private SMALLINT DEFAULT 0 NOT NULL,
+  request_ccemail SMALLINT DEFAULT 0 NOT NULL,
+  request_comments TEXT DEFAULT '' NOT NULL,
+  request_ip VARCHAR(45) NOT NULL,
+  request_completed_timestamp TIMESTAMPTZ DEFAULT NULL,
+  request_completed_actor BIGINT DEFAULT NULL,
+  request_notes TEXT DEFAULT '' NOT NULL,
   PRIMARY KEY(request_id)
 );
 
-CREATE INDEX request_actor_timestamp ON renamewiki_requests (
+CREATE INDEX account_request_actor_timestamp ON account_requests (
   request_actor, request_timestamp
 );
 
-CREATE INDEX request_timestamp ON renamewiki_requests (request_timestamp);
+CREATE INDEX account_request_timestamp ON account_requests (request_timestamp);
 
-CREATE INDEX request_target ON renamewiki_requests (request_target);
+CREATE INDEX account_request_email ON account_requests (request_email);
 
-CREATE INDEX request_status ON renamewiki_requests (request_status);
+CREATE INDEX account_request_username ON account_requests (request_username);
 
-
-CREATE TABLE renamewiki_request_comments (
-  request_comment_id BIGSERIAL NOT NULL,
-  request_id BIGINT NOT NULL,
-  request_comment_actor BIGINT NOT NULL,
-  request_comment_timestamp TIMESTAMPTZ NOT NULL,
-  request_comment_text TEXT NOT NULL,
-  PRIMARY KEY(request_comment_id)
-);
-
-CREATE INDEX request_id ON renamewiki_request_comments (request_id);
-
-CREATE INDEX request_comment_timestamp ON renamewiki_request_comments (request_comment_timestamp);
+CREATE INDEX account_request_status ON account_requests (request_status);
