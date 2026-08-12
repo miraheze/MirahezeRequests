@@ -246,8 +246,8 @@ class RequestAccountViewer extends RequestViewer {
 	}
 
 	/**
-	 * @phan-suppress-next-line PhanUnusedProtectedMethodParameter $form
-	 *   is required to match HTMLForm's submit-callback signature
+	 * $form is required to match HTMLForm's submit-callback signature.
+	 * @suppress PhanUnusedProtectedMethodParameter
 	 */
 	protected function submitForm(
 		array $formData,

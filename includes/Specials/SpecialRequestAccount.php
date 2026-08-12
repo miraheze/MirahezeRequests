@@ -3,13 +3,13 @@
 namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Message\Message;
-use MediaWiki\Status\StatusValue;
 use MediaWiki\Title\Title;
 use MediaWiki\User\CentralId\CentralIdLookup;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserNameUtils;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use StatusValue;
 
 class SpecialRequestAccount extends SpecialRequest {
 
@@ -104,11 +104,11 @@ class SpecialRequestAccount extends SpecialRequest {
 	/**
 	 * Checks Extension:TitleBlacklist and Extension:AntiSpoof, if
 	 * installed. Both are optional dependencies.
+	 *
+	 * @suppress PhanUndeclaredClassReference,PhanUndeclaredClassMethod
 	 */
 	private function isBlacklisted( Title $title ): bool {
-		// @phan-suppress-next-line PhanUndeclaredClassReference,PhanUndeclaredClassMethod
 		if ( class_exists( \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::class ) ) {
-			// @phan-suppress-next-line PhanUndeclaredClassMethod
 			$blacklist = \MediaWiki\Extension\TitleBlacklist\TitleBlacklist::singleton()
 				->userCannot( $title, $this->getUser(), 'create' );
 			if ( $blacklist ) {
@@ -116,9 +116,7 @@ class SpecialRequestAccount extends SpecialRequest {
 			}
 		}
 
-		// @phan-suppress-next-line PhanUndeclaredClassReference,PhanUndeclaredClassMethod
 		if ( class_exists( \MediaWiki\Extension\AntiSpoof\SpoofUser::class ) ) {
-			// @phan-suppress-next-line PhanUndeclaredClassMethod
 			$spoofUser = new \MediaWiki\Extension\AntiSpoof\SpoofUser( $title->getText() );
 			if ( $spoofUser->getConflicts() ) {
 				return true;
