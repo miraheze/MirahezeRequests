@@ -7,6 +7,7 @@ use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\User\UserFactory;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use stdClass;
 
 class RequestAccountQueuePager extends RequestQueuePager {
 
@@ -26,7 +27,6 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		string $username,
 		string $email,
 		bool $canSeeIp
-
 	) {
 		$this->username = $username;
 		$this->email = $email;
@@ -52,12 +52,12 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			$fields['request_completed_actor'] = $this->msg( 'mirahezerequests-label-donetby' )->text();
 		}
 
-		$fields['request_status'] = $this->msg( 'status' )->text();
+		$fields['request_status'] = $this->msg( 'mirahezerequests-label-status' )->text();
 
 		return $fields;
 	}
 
-	private function formatTimestamp( $value ): string {
+	private function formatTimestamp( string $value ): string {
 		return htmlspecialchars( $this->getLanguage()->userTimeAndDate(
 			$value, $this->getUser()
 		) );
@@ -72,6 +72,25 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		return htmlspecialchars( $this->actorNameCache[$actorId] );
 	}
 
+	/** @inheritDoc */
+	public function formatValue( $name, $value ): string {
+		if ( $value === null && $name === 'request_actor' ) {
+			return $this->formatRequester( $this->getCurrentRow() );
+		}
+
+		return parent::formatValue( $name, $value );
+	}
+
+	private function formatRequester( stdClass $row ): string {
+		// Logged-out requests have no actor; show the IP if the viewer may see it.
+		if ( $this->canSeeIp && $row->request_ip !== '' ) {
+			return htmlspecialchars( $row->request_ip );
+		}
+
+		return $this->msg( 'mirahezerequests-requester-anonymous' )->escaped();
+	}
+
+	/** @inheritDoc */
 	protected function formatRowValue( string $name, $value ): string {
 		return match ( $name ) {
 			'request_timestamp', 'request_completed_timestamp' => $this->formatTimestamp( $value ),
@@ -81,6 +100,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		};
 	}
 
+	/** @inheritDoc */
 	protected function formatStatusLabel( string $status ): string {
 		$msgKey = "mirahezerequests-status-$status";
 		if ( $this->msg( $msgKey )->exists() ) {
@@ -92,18 +112,18 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		return match ( $status ) {
 			MirahezeRequestsStatus::Pending->value => 'Pending',
 			MirahezeRequestsStatus::Starting->value => 'Starting',
-			MirahezeRequestsStatus::InProgress->value => 'In progress',
 			MirahezeRequestsStatus::Complete->value => 'Complete',
 			MirahezeRequestsStatus::Declined->value => 'Declined',
-			MirahezeRequestsStatus::Failed->value => 'Failed',
 			default => $status,
 		};
 	}
 
+	/** @inheritDoc */
 	protected function getTableName(): string {
 		return 'account_requests';
 	}
 
+	/** @inheritDoc */
 	protected function getRequestFields(): array {
 		$fields = [
 			'request_actor',
@@ -126,6 +146,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		return $fields;
 	}
 
+	/** @inheritDoc */
 	protected function getExtraConds(): array {
 		$conds = [];
 
@@ -140,6 +161,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		return $conds;
 	}
 
+	/** @inheritDoc */
 	protected function getStatusPageName(): string {
 		return 'RequestAccountQueue';
 	}

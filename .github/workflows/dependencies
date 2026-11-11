@@ -4,3 +4,6 @@ CentralAuth:
 Echo:
   branch: auto
   repo: auto
+TitleBlacklist:
+  branch: auto
+  repo: auto

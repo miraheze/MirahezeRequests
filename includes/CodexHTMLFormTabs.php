@@ -32,7 +32,8 @@ class CodexHTMLFormTabs extends CodexHTMLForm {
 
 		return Html::element( 'div', [
 			'id' => 'mirahezerequests-tabs-root',
-			'data-tabs' => json_encode( $tabs ),
+			// reserved, so wikitext and interface messages can't forge it (T15786)
+			'data-mw-tabs' => json_encode( $tabs ),
 		] );
 	}
 }

@@ -30,11 +30,10 @@ class MirahezeRequestsDatabaseService {
 	/**
 	 * @throws ErrorPageError if this isn't the central wiki
 	 */
-	public function isCentralDB(): true {
+	public function assertCentralWiki(): void {
 		if ( !$this->isCentralWiki() ) {
 			throw new ErrorPageError( 'mirahezerequests-notcentral', 'mirahezerequests-notcentral-text' );
 		}
-		return true;
 	}
 
 	public function getDbw(): IDatabase {

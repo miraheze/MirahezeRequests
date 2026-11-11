@@ -4,25 +4,34 @@
 -- See https://www.mediawiki.org/wiki/Manual:Schema_changes
 CREATE TABLE /*_*/account_requests (
   request_id BIGINT UNSIGNED AUTO_INCREMENT NOT NULL,
-  request_actor BIGINT UNSIGNED NOT NULL,
+  request_actor BIGINT UNSIGNED DEFAULT NULL,
   request_timestamp BINARY(14) NOT NULL,
   request_email VARCHAR(255) NOT NULL,
   request_username VARCHAR(255) NOT NULL,
+  request_name_warnings BLOB DEFAULT NULL,
   request_reason ENUM(
-    'globalblock', 'abusefilter', 'captcha', 'other'
+    'globalblock', 'abusefilter', 'captcha',
+    'other'
   ) NOT NULL,
+  request_globalblock_reason ENUM(
+    'crosswiki-abuse', 'crosswiki-spam',
+    'crosswiki-vandalism', 'longterm-abuse',
+    'proxy', 'trust-safety', 'other'
+  ) DEFAULT NULL,
   request_explanation MEDIUMBLOB NOT NULL,
   request_status ENUM(
-    'complete', 'declined', 'failed',
-    'inprogress', 'pending', 'starting'
+    'complete', 'declined', 'pending',
+    'starting', 'unconfirmed'
   ) NOT NULL,
-  request_locked TINYINT UNSIGNED DEFAULT 0 NOT NULL,
   request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
-  request_comments MEDIUMBLOB DEFAULT '' NOT NULL,
+  request_comments MEDIUMBLOB NOT NULL,
   request_ip VARCHAR(45) NOT NULL,
+  request_language VARCHAR(35) NOT NULL,
+  request_token VARCHAR(64) DEFAULT NULL,
+  request_confirmed_timestamp BINARY(14) DEFAULT NULL,
   request_completed_timestamp BINARY(14) DEFAULT NULL,
   request_completed_actor BIGINT UNSIGNED DEFAULT NULL,
-  request_notes BLOB DEFAULT '' NOT NULL,
+  request_notes BLOB NOT NULL,
   INDEX account_request_actor_timestamp (
     request_actor, request_timestamp
   ),
@@ -30,5 +39,6 @@ CREATE TABLE /*_*/account_requests (
   INDEX account_request_email (request_email),
   INDEX account_request_username (request_username),
   INDEX account_request_status (request_status),
+  INDEX account_request_token (request_token),
   PRIMARY KEY(request_id)
 ) /*$wgDBTableOptions*/;

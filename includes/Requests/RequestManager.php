@@ -43,15 +43,22 @@ abstract class RequestManager {
 		return $this->Id;
 	}
 
-	public function getStatus() {
+	public function getStatus(): string {
 		return $this->row->request_status;
 	}
 
-	public function getRequester(): User {
-		return $this->userFactory->newFromActorId( $this->row->request_actor );
+	/**
+	 * @return ?User Null if the request was submitted while logged out
+	 */
+	public function getRequester(): ?User {
+		if ( $this->row->request_actor === null ) {
+			return null;
+		}
+
+		return $this->userFactory->newFromActorId( (int)$this->row->request_actor );
 	}
 
-	public function getTimestamp() {
+	public function getTimestamp(): string {
 		return $this->row->request_timestamp;
 	}
 

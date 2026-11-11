@@ -28,12 +28,23 @@ abstract class RequestQueuePager extends TablePager {
 	}
 
 	abstract protected function getTableName(): string;
+
 	abstract protected function getRequestFields(): array;
+
 	abstract protected function getExtraConds(): array;
+
 	abstract protected function getStatusPageName(): string;
+
 	abstract protected function formatStatusLabel( string $status ): string;
+
+	/**
+	 * @param string $name
+	 * @param mixed $value
+	 * @return string HTML
+	 */
 	abstract protected function formatRowValue( string $name, $value ): string;
 
+	/** @inheritDoc */
 	public function getQueryInfo(): array {
 		$info = [
 			'tables' => [ $this->getTableName() ],
@@ -49,6 +60,11 @@ abstract class RequestQueuePager extends TablePager {
 
 		if ( $this->status && $this->status !== '*' ) {
 			$info['conds']['request_status'] = $this->status;
+		} elseif ( $this->type === 'all' ) {
+			$info['conds']['request_status'] = array_merge(
+				MirahezeRequestsStatus::OPEN,
+				MirahezeRequestsStatus::CLOSED
+			);
 		} else {
 			$info['conds']['request_status'] = $this->type === 'closed'
 				? MirahezeRequestsStatus::CLOSED
@@ -58,6 +74,7 @@ abstract class RequestQueuePager extends TablePager {
 		return $info;
 	}
 
+	/** @inheritDoc */
 	public function formatValue( $name, $value ): string {
 		if ( $value === null ) {
 			return '';
@@ -74,10 +91,12 @@ abstract class RequestQueuePager extends TablePager {
 		return $this->formatRowValue( $name, $value );
 	}
 
+	/** @inheritDoc */
 	public function getDefaultSort(): string {
 		return 'request_id';
 	}
 
+	/** @inheritDoc */
 	public function isFieldSortable( $field ): bool {
 		return $field !== 'request_actor';
 	}

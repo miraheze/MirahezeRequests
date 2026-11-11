@@ -4,17 +4,21 @@
 -- See https://www.mediawiki.org/wiki/Manual:Schema_changes
 CREATE TABLE /*_*/account_requests (
   request_id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-  request_actor BIGINT UNSIGNED NOT NULL,
+  request_actor BIGINT UNSIGNED DEFAULT NULL,
   request_timestamp BLOB NOT NULL,
   request_email VARCHAR(255) NOT NULL,
   request_username VARCHAR(255) NOT NULL,
+  request_name_warnings BLOB DEFAULT NULL,
   request_reason TEXT NOT NULL,
+  request_globalblock_reason TEXT DEFAULT NULL,
   request_explanation BLOB NOT NULL,
   request_status TEXT NOT NULL,
-  request_locked SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
   request_ccemail SMALLINT UNSIGNED DEFAULT 0 NOT NULL,
   request_comments BLOB DEFAULT '' NOT NULL,
   request_ip VARCHAR(45) NOT NULL,
+  request_language VARCHAR(35) NOT NULL,
+  request_token VARCHAR(64) DEFAULT NULL,
+  request_confirmed_timestamp BLOB DEFAULT NULL,
   request_completed_timestamp BLOB DEFAULT NULL,
   request_completed_actor BIGINT UNSIGNED DEFAULT NULL,
   request_notes BLOB DEFAULT '' NOT NULL
@@ -31,3 +35,5 @@ CREATE INDEX account_request_email ON /*_*/account_requests (request_email);
 CREATE INDEX account_request_username ON /*_*/account_requests (request_username);
 
 CREATE INDEX account_request_status ON /*_*/account_requests (request_status);
+
+CREATE INDEX account_request_token ON /*_*/account_requests (request_token);

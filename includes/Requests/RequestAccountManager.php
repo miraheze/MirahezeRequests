@@ -5,31 +5,31 @@ namespace Miraheze\MirahezeRequests\Requests;
 use MediaWiki\Block\BlockManager;
 use MediaWiki\Block\CompositeBlock;
 use MediaWiki\Config\Config;
-use MediaWiki\JobQueue\JobQueueGroupFactory;
-use MediaWiki\JobQueue\JobSpecification;
-use MediaWiki\Mail\MailAddress;
-use MediaWiki\Mail\UserMailer;
-use MediaWiki\MainConfigNames;
 use MediaWiki\User\ActorNormalization;
 use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserIdentity;
 use Miraheze\MirahezeRequests\ConfigNames;
-use Miraheze\MirahezeRequests\Jobs\CreateAccountJob;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use Wikimedia\Rdbms\IReadableDatabase;
+use Wikimedia\Rdbms\ReadOnlyMode;
+use Wikimedia\Rdbms\SelectQueryBuilder;
+use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 class RequestAccountManager extends RequestManager {
 
+	private const TABLE = 'account_requests';
+
 	public function __construct(
-		private readonly JobQueueGroupFactory $jobQueueGroupFactory,
 		private readonly MirahezeRequestsDatabaseService $dbService,
 		private readonly UserFactory $userFactory,
 		private readonly BlockManager $blockManager,
 		private readonly Config $config,
 		private readonly UserGroupManager $userGroupManager,
 		private readonly ActorNormalization $actorNormalization,
+		private readonly ReadOnlyMode $readOnlyMode,
 	) {
 		parent::__construct(
 			'account',
@@ -53,13 +53,117 @@ class RequestAccountManager extends RequestManager {
 		return (bool)array_intersect( $groups, $userGroups );
 	}
 
-	public function executeJob( UserIdentity $performer ): void {
-		$this->jobQueueGroupFactory->makeJobQueueGroup()->push(
-			new JobSpecification(
-				CreateAccountJob::JOB_NAME,
-				[ 'id' => $this->getId(), 'performer' => $performer->getName() ]
-			)
-		);
+	/**
+	 * Inserts a request waiting for its email address to be confirmed.
+	 *
+	 * @param array $row Columns from the form, including the timestamp
+	 * @param ?UserIdentity $requester The account it was submitted from, or null if logged out
+	 * @return array{0:int,1:string} The request ID and the plain confirmation token
+	 */
+	public function createUnconfirmed( array $row, ?UserIdentity $requester ): array {
+		$token = self::newToken();
+		$dbw = $this->dbService->getDbw();
+
+		$dbw->newInsertQueryBuilder()
+			->insertInto( self::TABLE )
+			->row( [
+				'request_actor' => $requester ? $this->actorNormalization->acquireActorId( $requester, $dbw ) : null,
+				'request_token' => self::hashToken( $token ),
+				'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
+				// BLOB columns can't have a default in MySQL
+				'request_notes' => '',
+			] + $row )
+			->caller( __METHOD__ )
+			->execute();
+
+		return [ $dbw->insertId(), $token ];
+	}
+
+	public function deleteUnconfirmed( int $id ): void {
+		$this->dbService->getDbw()->newDeleteQueryBuilder()
+			->deleteFrom( self::TABLE )
+			->where( [
+				'request_id' => $id,
+				'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
+			] )
+			->caller( __METHOD__ )
+			->execute();
+	}
+
+	/**
+	 * @return ?int The ID of the unconfirmed request whose unexpired link has this token
+	 */
+	public function findUnconfirmedIdByToken( string $token ): ?int {
+		$dbw = $this->dbService->getDbw();
+
+		$id = $dbw->newSelectQueryBuilder()
+			->select( 'request_id' )
+			->from( self::TABLE )
+			->where( [
+				'request_token' => self::hashToken( $token ),
+				'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
+			] )
+			->andWhere( $dbw->expr( 'request_timestamp', '>=', $this->getConfirmationCutoff( $dbw ) ) )
+			->caller( __METHOD__ )
+			->fetchField();
+
+		return $id !== false ? (int)$id : null;
+	}
+
+	/**
+	 * Puts the loaded unconfirmed request into the queue.
+	 *
+	 * @return bool False if it was confirmed concurrently
+	 */
+	public function confirm(): bool {
+		$dbw = $this->dbService->getDbw();
+
+		$dbw->newUpdateQueryBuilder()
+			->update( self::TABLE )
+			->set( [
+				'request_status' => MirahezeRequestsStatus::Pending->value,
+				'request_confirmed_timestamp' => $dbw->timestamp(),
+				'request_token' => null,
+			] )
+			->where( [
+				'request_id' => $this->getId(),
+				'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
+			] )
+			->caller( __METHOD__ )
+			->execute();
+
+		if ( $dbw->affectedRows() === 0 ) {
+			return false;
+		}
+
+		$this->row->request_status = MirahezeRequestsStatus::Pending->value;
+		return true;
+	}
+
+	/**
+	 * Atomic, so two handlers can't act on one request.
+	 *
+	 * @return bool False if the loaded request is no longer in $from
+	 */
+	public function transitionStatus( string $from, string $to ): bool {
+		$dbw = $this->dbService->getDbw();
+
+		$dbw->newUpdateQueryBuilder()
+			->update( self::TABLE )
+			->set( [ 'request_status' => $to ] )
+			->where( [
+				'request_id' => $this->getId(),
+				'request_status' => $from,
+			] )
+			->caller( __METHOD__ )
+			->execute();
+
+		if ( $dbw->affectedRows() === 0 ) {
+			return false;
+		}
+
+		$this->row->request_status = $to;
+		return true;
 	}
 
 	/**
@@ -72,7 +176,7 @@ class RequestAccountManager extends RequestManager {
 		$performerActorId = $this->actorNormalization->acquireActorId( $performer, $dbw );
 
 		$dbw->newUpdateQueryBuilder()
-			->update( 'account_requests' )
+			->update( self::TABLE )
 			->set( [
 				'request_status' => $status,
 				'request_completed_timestamp' => $timestamp,
@@ -89,42 +193,106 @@ class RequestAccountManager extends RequestManager {
 		$this->row->request_notes = $notes;
 	}
 
-	public function sendDeclineEmail( string $reason ): void {
-		$from = $this->getSystemMailAddress();
+	public function hasOpenRequestForName( string $name ): bool {
+		return (bool)$this->dbService->getDbw()->newSelectQueryBuilder()
+			->select( 'request_id' )
+			->from( self::TABLE )
+			->where( [
+				'request_username' => $name,
+				'request_status' => MirahezeRequestsStatus::OPEN,
+			] )
+			->caller( __METHOD__ )
+			->fetchField();
+	}
 
-		$subjectMessage = wfMessage( 'requestaccount-declined-email-title' );
-		$bodyMessage = wfMessage( 'requestaccount-declined-email-text', $reason );
+	/** Whether the address is used by an open or unexpired unconfirmed request. */
+	public function hasActiveRequestForEmail( string $email ): bool {
+		$dbw = $this->dbService->getDbw();
 
-		// Plain-text mail body: not an XSS risk.
-		// @phan-suppress-next-line SecurityCheck-XSS
-		UserMailer::send(
-			new MailAddress( $this->getEmail(), $this->getUsername() ),
-			$from,
-			$subjectMessage->text(),
-			$bodyMessage->text()
-		);
-
-		$ccEmail = $this->getRequesterCcEmail();
-		if ( $ccEmail && $ccEmail !== $this->getEmail() ) {
-			// @phan-suppress-next-line SecurityCheck-XSS
-			UserMailer::send(
-				new MailAddress( $ccEmail ),
-				$from,
-				$subjectMessage->text(),
-				$bodyMessage->text()
-			);
-		}
+		return (bool)$dbw->newSelectQueryBuilder()
+			->select( 'request_id' )
+			->from( self::TABLE )
+			->where( [ 'request_email' => $email ] )
+			->andWhere( $dbw->orExpr( [
+				$dbw->expr( 'request_status', '=', MirahezeRequestsStatus::OPEN ),
+				$dbw->expr( 'request_status', '=', MirahezeRequestsStatus::Unconfirmed->value )
+					->and( 'request_timestamp', '>=', $this->getConfirmationCutoff( $dbw ) ),
+			] ) )
+			->caller( __METHOD__ )
+			->fetchField();
 	}
 
 	/**
-	 * $wgPasswordSender, not the system user's own email (which is
-	 * unset), since that produced a blank From header and threw.
+	 * Other requests with the same address as the loaded one, newest first.
+	 *
+	 * @param int $limit
+	 * @return array<int,array{id:int,status:string}>
 	 */
-	private function getSystemMailAddress(): MailAddress {
-		return new MailAddress(
-			$this->config->get( MainConfigNames::PasswordSender ),
-			wfMessage( 'emailsender' )->inContentLanguage()->text()
-		);
+	public function getOtherRequestsWithSameEmail( int $limit ): array {
+		$dbr = $this->dbService->getDbr();
+
+		$res = $dbr->newSelectQueryBuilder()
+			->select( [ 'request_id', 'request_status' ] )
+			->from( self::TABLE )
+			->where( [ 'request_email' => $this->row->request_email ] )
+			->andWhere( [
+				$dbr->expr( 'request_id', '!=', $this->getId() ),
+				$dbr->expr( 'request_status', '!=', MirahezeRequestsStatus::Unconfirmed->value ),
+			] )
+			->orderBy( 'request_id', SelectQueryBuilder::SORT_DESC )
+			->limit( $limit )
+			->caller( __METHOD__ )
+			->fetchResultSet();
+
+		$requests = [];
+		foreach ( $res as $row ) {
+			$requests[] = [ 'id' => (int)$row->request_id, 'status' => $row->request_status ];
+		}
+
+		return $requests;
+	}
+
+	/** Deletes expired unconfirmed requests and old IP addresses. */
+	public function purgeExpiredData(): void {
+		// also runs on page views
+		if ( $this->readOnlyMode->isReadOnly() ) {
+			return;
+		}
+
+		$dbw = $this->dbService->getDbw();
+
+		$dbw->newDeleteQueryBuilder()
+			->deleteFrom( self::TABLE )
+			->where( [ 'request_status' => MirahezeRequestsStatus::Unconfirmed->value ] )
+			->andWhere( $dbw->expr( 'request_timestamp', '<', $this->getConfirmationCutoff( $dbw ) ) )
+			->caller( __METHOD__ )
+			->execute();
+
+		$retentionDays = (int)$this->config->get( ConfigNames::IPRetentionDays );
+		if ( $retentionDays <= 0 ) {
+			return;
+		}
+
+		$cutoff = $dbw->timestamp( ConvertibleTimestamp::time() - $retentionDays * 86400 );
+
+		// Open requests keep their IP only for the retention period from
+		// submission, or a request that is never handled would keep it forever.
+		// Once handled, the period is counted from completion instead.
+		$dbw->newUpdateQueryBuilder()
+			->update( self::TABLE )
+			->set( [ 'request_ip' => '' ] )
+			->where( [
+				$dbw->expr( 'request_ip', '!=', '' ),
+				$dbw->orExpr( [
+					$dbw->expr( 'request_completed_timestamp', '<', $cutoff ),
+					$dbw->andExpr( [
+						$dbw->expr( 'request_completed_timestamp', '=', null ),
+						$dbw->expr( 'request_timestamp', '<', $cutoff ),
+					] ),
+				] ),
+			] )
+			->caller( __METHOD__ )
+			->execute();
 	}
 
 	/**
@@ -137,7 +305,7 @@ class RequestAccountManager extends RequestManager {
 		}
 
 		$requester = $this->getRequester();
-		if ( $requester->isRegistered() && $requester->isEmailConfirmed() ) {
+		if ( $requester && $requester->isRegistered() && $requester->isEmailConfirmed() ) {
 			return $requester->getEmail();
 		}
 
@@ -149,9 +317,11 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	public function getIpBlocks(): array {
-		$user = $this->getRequester();
-		$block = $this->blockManager->getIpBlock( $user->getName(), true );
+		if ( $this->getIp() === '' ) {
+			return [];
+		}
 
+		$block = $this->blockManager->getIpBlock( $this->getIp(), true );
 		if ( !$block ) {
 			return [];
 		}
@@ -166,31 +336,51 @@ class RequestAccountManager extends RequestManager {
 		return $out;
 	}
 
-	public function getUsername() {
+	public function getUsername(): string {
 		return $this->row->request_username;
 	}
 
-	public function getEmail() {
+	/**
+	 * @return string[] HTML of each username check the name failed at submission
+	 */
+	public function getNameWarnings(): array {
+		// keep requests viewable even with broken JSON
+		$warnings = json_decode( $this->row->request_name_warnings ?? '[]', true );
+		return is_array( $warnings ) ? $warnings : [];
+	}
+
+	public function getEmail(): string {
 		return $this->row->request_email;
 	}
 
-	public function getReason() {
+	public function getReason(): string {
 		return $this->row->request_reason;
 	}
 
-	public function getExplanation() {
+	public function getGlobalBlockReason(): ?string {
+		return $this->row->request_globalblock_reason;
+	}
+
+	public function getExplanation(): string {
 		return $this->row->request_explanation;
 	}
 
-	public function getComments() {
+	public function getComments(): string {
 		return $this->row->request_comments;
 	}
 
-	public function getIp() {
+	/**
+	 * @return string Empty once purged
+	 */
+	public function getIp(): string {
 		return $this->row->request_ip;
 	}
 
-	public function getCompletedTimestamp() {
+	public function getLanguage(): string {
+		return $this->row->request_language;
+	}
+
+	public function getCompletedTimestamp(): ?string {
 		return $this->row->request_completed_timestamp;
 	}
 
@@ -211,6 +401,11 @@ class RequestAccountManager extends RequestManager {
 		return $user !== null && $user->isRegistered();
 	}
 
+	/** Whether handlers can see the request; unconfirmed ones are not in the queue yet. */
+	public function isInQueue(): bool {
+		return $this->exists() && $this->getStatus() !== MirahezeRequestsStatus::Unconfirmed->value;
+	}
+
 	/**
 	 * Whether the request is complete, declined, or starting, and so
 	 * can no longer be accepted or declined again.
@@ -221,5 +416,20 @@ class RequestAccountManager extends RequestManager {
 			MirahezeRequestsStatus::Declined->value,
 			MirahezeRequestsStatus::Starting->value,
 		], true );
+	}
+
+	private function getConfirmationCutoff( IReadableDatabase $db ): string {
+		return $db->timestamp(
+			ConvertibleTimestamp::time() - (int)$this->config->get( ConfigNames::AccountConfirmationExpiry )
+		);
+	}
+
+	private static function newToken(): string {
+		return bin2hex( random_bytes( 32 ) );
+	}
+
+	/** Only hashes are stored, so a dump can't rebuild links. */
+	private static function hashToken( string $token ): string {
+		return hash( 'sha256', $token );
 	}
 }

@@ -11,13 +11,12 @@ enum MirahezeRequestsStatus: string {
 
 	case Declined = 'declined';
 
-	case Failed = 'failed';
-
-	case InProgress = 'inprogress';
-
 	case Pending = 'pending';
 
 	case Starting = 'starting';
+
+	/** Waiting for the requester to confirm their email address; not in the queue yet. */
+	case Unconfirmed = 'unconfirmed';
 
 	/**
 	 * Statuses for requests that are still awaiting action or being
@@ -26,7 +25,6 @@ enum MirahezeRequestsStatus: string {
 	public const array OPEN = [
 		self::Pending->value,
 		self::Starting->value,
-		self::InProgress->value,
 	];
 
 	/**
@@ -35,7 +33,6 @@ enum MirahezeRequestsStatus: string {
 	public const array CLOSED = [
 		self::Complete->value,
 		self::Declined->value,
-		self::Failed->value,
 	];
 
 	/**
@@ -43,5 +40,14 @@ enum MirahezeRequestsStatus: string {
 	 */
 	public function getMessageKey(): string {
 		return 'mirahezerequests-status-' . $this->value;
+	}
+
+	/**
+	 * Statuses handlers see in the queue.
+	 *
+	 * @return self[]
+	 */
+	public static function queueCases(): array {
+		return array_filter( self::cases(), static fn ( self $case ) => $case !== self::Unconfirmed );
 	}
 }

@@ -9,6 +9,10 @@ namespace Miraheze\MirahezeRequests;
  */
 class ConfigNames {
 
+	public const AccountConfirmationExpiry = 'MirahezeRequestsAccountConfirmationExpiry';
+
+	public const AccountRequestsOpen = 'MirahezeRequestsAccountRequestsOpen';
+
 	public const IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
 
 	public const IPRetentionDays = 'MirahezeRequestsIPRetentionDays';

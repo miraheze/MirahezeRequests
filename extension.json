@@ -7,7 +7,7 @@
 	"license-name": "GPL-3.0-or-later",
 	"type": "specialpage",
 	"requires": {
-		"MediaWiki": ">= 1.45.0",
+		"MediaWiki": ">= 1.46.0",
 		"platform": {
 			"php": ">= 8.4"
 		}
@@ -21,23 +21,11 @@
 		"MirahezeRequestsAliases": "MirahezeRequestsAliases.php"
 	},
 	"AutoloadNamespaces": {
-		"Miraheze\\MirahezeRequests\\": "includes/"
+		"Miraheze\\MirahezeRequests\\": "includes/",
+		"Miraheze\\MirahezeRequests\\Maintenance\\": "maintenance/"
 	},
 	"TestAutoloadNamespaces": {
 		"Miraheze\\MirahezeRequests\\Tests\\": "tests/phpunit/"
-	},
-	"JobClasses": {
-		"MirahezeRequestsCreateAccountJob": {
-			"class": "Miraheze\\MirahezeRequests\\Jobs\\CreateAccountJob",
-			"services": [
-				"UserFactory",
-				"AuthManager",
-				"RequestAccountManager",
-				"MainConfig",
-				"FormatterFactory"
-			],
-			"needsPage": false
-		}
 	},
 	"GroupPermissions": {
 		"*": {
@@ -60,22 +48,43 @@
 	"LogTypes": [
 		"requestaccount"
 	],
+	"LogRestrictions": {
+		"requestaccount": "handle-requestaccount"
+	},
+	"RateLimits": {
+		"requestaccount": {
+			"ip-all": [
+				3,
+				3600
+			],
+			"subnet-all": [
+				10,
+				86400
+			]
+		}
+	},
 	"SpecialPages": {
 		"RequestAccount": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestAccount",
 			"services": [
 				"MirahezeRequestsDatabaseService",
-				"UserNameUtils",
-				"UserFactory",
-				"CentralIdLookup"
+				"ExtensionRegistry",
+				"MirahezeRequestsAccountRequestMailer",
+				"RequestAccountManager",
+				"MirahezeRequestsUsernameValidator"
 			]
 		},
 		"RequestAccountQueue": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\Queue\\SpecialRequestAccountQueue",
 			"services": [
 				"MirahezeRequestsDatabaseService",
-				"RequestAccountManager",
-				"UserFactory"
+				"UserFactory",
+				"AuthManager",
+				"ExtensionRegistry",
+				"FormatterFactory",
+				"MirahezeRequestsAccountCreator",
+				"MirahezeRequestsAccountRequestMailer",
+				"RequestAccountManager"
 			]
 		}
 	},
@@ -101,37 +110,62 @@
 		"remoteExtPath": "MirahezeRequests/resources"
 	},
 	"config": {
+		"MirahezeRequestsAccountConfirmationExpiry": {
+			"value": 86400,
+			"description": "Seconds a requester has to confirm their email address. Unconfirmed requests are deleted afterwards."
+		},
+		"MirahezeRequestsAccountRequestsOpen": {
+			"value": true,
+			"description": "Whether Special:RequestAccount accepts new requests. Requests submitted before can still be confirmed and handled."
+		},
 		"MirahezeRequestsIPVisibilityGroups": {
 			"value": [],
 			"description": "Array of user group names allowed to see requesters' IP addresses on requests that capture one (e.g. account requests). If empty (the default), nobody can see IPs, regardless of the handle-* right - this must be explicitly configured. If non-empty, only handlers who are also in one of these groups can see IPs."
 		},
 		"MirahezeRequestsIPRetentionDays": {
 			"value": 90,
-			"description": "Number of days to retain requesters' IP addresses before they are purged by the PurgeOldRequestIPs maintenance script. Set to 0 to disable purging. This does not run automatically; it must be scheduled (e.g. via cron)."
+			"description": "Days to keep a request's IP address, counted from when the request was handled, or from submission while it is still open. Purging runs when requests are submitted, when handlers view the queue, and through the PurgeExpiredAccountRequests maintenance script. Set to 0 to keep IP addresses."
 		}
 	},
 	"ConfigRegistry": {
 		"MirahezeRequests": "MediaWiki\\Config\\GlobalVarConfig::newInstance"
 	},
 	"Hooks": {
+		"ConfirmEditCanUserSkipCaptcha": {
+			"handler": "ConfirmEdit"
+		},
+		"ConfirmEditTriggersCaptcha": {
+			"handler": "ConfirmEdit"
+		},
+		"ExemptFromAccountCreationThrottle": {
+			"handler": "Main"
+		},
+		"GetAllBlockActions": {
+			"handler": "Main"
+		},
 		"LoadExtensionSchemaUpdates": {
 			"handler": "Installer"
 		},
 		"UserGetReservedNames": {
 			"handler": "Main"
-		},
-		"GetAllBlockActions": {
-			"handler": "Main"
 		}
 	},
 	"HookHandlers": {
+		"ConfirmEdit": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\ConfirmEdit",
+			"services": [
+				"MainConfig",
+				"MirahezeRequestsAccountCreator"
+			]
+		},
 		"Installer": {
 			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Installer"
 		},
 		"Main": {
 			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
 			"services": [
-				"MirahezeRequestsDatabaseService"
+				"MirahezeRequestsDatabaseService",
+				"MirahezeRequestsAccountCreator"
 			]
 		}
 	},

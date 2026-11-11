@@ -15,10 +15,10 @@
 			},
 			{
 				"name": "request_actor",
-				"comment": "",
+				"comment": "Account the request was submitted from; null if logged out, as the actor would keep the IP",
 				"type": "bigint",
 				"options": {
-					"notnull": true,
+					"notnull": false,
 					"unsigned": true
 				}
 			},
@@ -49,16 +49,44 @@
 				}
 			},
 			{
+				"name": "request_name_warnings",
+				"comment": "JSON list of the username checks that failed on submission, as HTML",
+				"type": "blob",
+				"options": {
+					"notnull": false,
+					"length": 65530
+				}
+			},
+			{
 				"name": "request_reason",
 				"comment": "",
 				"type": "mwenum",
 				"options": {
 					"notnull": true,
-					"CustomSchemaOptions": {
+					"PlatformOptions": {
 						"enum_values": [
 							"globalblock",
 							"abusefilter",
 							"captcha",
+							"other"
+						]
+					}
+				}
+			},
+			{
+				"name": "request_globalblock_reason",
+				"comment": "Reason of the global block, if that was the reason",
+				"type": "mwenum",
+				"options": {
+					"notnull": false,
+					"PlatformOptions": {
+						"enum_values": [
+							"crosswiki-abuse",
+							"crosswiki-spam",
+							"crosswiki-vandalism",
+							"longterm-abuse",
+							"proxy",
+							"trust-safety",
 							"other"
 						]
 					}
@@ -79,31 +107,20 @@
 				"type": "mwenum",
 				"options": {
 					"notnull": true,
-					"CustomSchemaOptions": {
+					"PlatformOptions": {
 						"enum_values": [
 							"complete",
 							"declined",
-							"failed",
-							"inprogress",
 							"pending",
-							"starting"
+							"starting",
+							"unconfirmed"
 						]
 					}
 				}
 			},
 			{
-				"name": "request_locked",
-				"comment": "",
-				"type": "mwtinyint",
-				"options": {
-					"notnull": true,
-					"unsigned": true,
-					"default": 0
-				}
-			},
-			{
 				"name": "request_ccemail",
-				"comment": "Whether the requester opted in to being CC'd on the decision email",
+				"comment": "",
 				"type": "mwtinyint",
 				"options": {
 					"notnull": true,
@@ -128,6 +145,32 @@
 				"options": {
 					"notnull": true,
 					"length": 45
+				}
+			},
+			{
+				"name": "request_language",
+				"comment": "Language the requester used, for emails to them",
+				"type": "string",
+				"options": {
+					"notnull": true,
+					"length": 35
+				}
+			},
+			{
+				"name": "request_token",
+				"comment": "Hash of the email confirmation token",
+				"type": "string",
+				"options": {
+					"notnull": false,
+					"length": 64
+				}
+			},
+			{
+				"name": "request_confirmed_timestamp",
+				"comment": "",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
 				}
 			},
 			{
@@ -197,6 +240,14 @@
 				"comment": "",
 				"columns": [
 					"request_status"
+				],
+				"unique": false
+			},
+			{
+				"name": "account_request_token",
+				"comment": "",
+				"columns": [
+					"request_token"
 				],
 				"unique": false
 			}

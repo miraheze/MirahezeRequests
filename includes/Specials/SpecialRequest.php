@@ -14,12 +14,17 @@ abstract class SpecialRequest extends FormSpecialPage {
 
 	public function __construct(
 		readonly string $name,
-		string $right,
+		private readonly string $right,
 		protected readonly MirahezeRequestsDatabaseService $dbService
 	) {
 		$pageName = 'Request' . $name;
 		$this->tableName = strtolower( $name ) . '_requests';
-		parent::__construct( $pageName, $right );
+		parent::__construct( $pageName );
+	}
+
+	/** @inheritDoc */
+	public function getRestriction(): string {
+		return $this->right;
 	}
 
 	/**
@@ -33,18 +38,21 @@ abstract class SpecialRequest extends FormSpecialPage {
 	 */
 	abstract protected function getInsertRow( array $data, string $timestamp ): array;
 
+	/** @inheritDoc */
 	public function execute( $par ): void {
 		$this->setParameter( $par );
 		$this->setHeaders();
 
-		$this->dbService->isCentralDB();
-		$this->checkPermissions();
+		$this->dbService->assertCentralWiki();
+		// also checks blocks and read-only mode, unlike checkPermissions()
+		$this->checkExecutePermissions( $this->getUser() );
 
 		if ( $this->getForm()->show() ) {
 			$this->onSuccess();
 		}
 	}
 
+	/** @inheritDoc */
 	public function onSubmit( array $data ): Status {
 		// HTMLForm already checks the edit token before calling this.
 		$dbw = $this->dbService->getDbw();
@@ -62,6 +70,7 @@ abstract class SpecialRequest extends FormSpecialPage {
 		return Status::newGood();
 	}
 
+	/** @inheritDoc */
 	public function onSuccess(): void {
 		$requestLink = $this->getLinkRenderer()->makeLink(
 			SpecialPage::getTitleFor( 'Request' . $this->name . 'Queue', (string)$this->insertedId ),
@@ -75,10 +84,12 @@ abstract class SpecialRequest extends FormSpecialPage {
 		);
 	}
 
+	/** @inheritDoc */
 	protected function getDisplayFormat(): string {
 		return 'codex';
 	}
 
+	/** @inheritDoc */
 	public function doesWrites(): bool {
 		return true;
 	}
