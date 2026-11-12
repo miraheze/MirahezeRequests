@@ -5,18 +5,26 @@ namespace Miraheze\MirahezeRequests;
 use MediaWiki\Config\Config;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Context\RequestContext;
+use MediaWiki\Extension\CentralAuth\CentralAuthServices;
 use MediaWiki\MediaWikiServices;
 use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
 
 // PHPUnit does not understand coverage for this file.
 // It is covered though, see ServiceWiringTest.
 // @codeCoverageIgnoreStart
 
 return [
+	'MirahezeRequestsAccountRequestRouter' => static function ( MediaWikiServices $services ): AccountRequestRouter {
+		return new AccountRequestRouter(
+			$services->getExtensionRegistry()->isLoaded( 'CentralAuth' ) ?
+				CentralAuthServices::getSharedDomainUtils( $services ) : null,
+		);
+	},
 	'MirahezeRequestsAccountCreator' => static function ( MediaWikiServices $services ): AccountCreator {
 		return new AccountCreator(
 			$services->getAuthManager(),

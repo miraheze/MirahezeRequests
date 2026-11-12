@@ -18,7 +18,6 @@ use Miraheze\MirahezeRequests\ConfigNames;
 use Miraheze\MirahezeRequests\FieldValidator;
 use Miraheze\MirahezeRequests\Hooks\Handlers\ConfirmEdit;
 use Miraheze\MirahezeRequests\MirahezeRequestsConstants;
-use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
@@ -50,6 +49,7 @@ class SpecialRequestAccount extends SpecialRequest {
 
 	public function __construct(
 		MirahezeRequestsDatabaseService $dbService,
+		private readonly AccountRequestRouter $accountRequestRouter,
 		private readonly ExtensionRegistry $extensionRegistry,
 		private readonly AccountRequestMailer $requestMailer,
 		private readonly RequestAccountManager $requestManager,
@@ -73,14 +73,14 @@ class SpecialRequestAccount extends SpecialRequest {
 			throw new ErrorPageError( 'requestaccount', 'requestaccount-error-email-disabled' );
 		}
 
+		if ( !$this->accountRequestRouter->ensureAuthenticationDomain( $this, $par ) ) {
+			return;
+		}
+
 		$subpage = explode( '/', $par ?? '', 2 );
 		if ( $subpage[0] === 'confirm' ) {
 			$this->checkReadOnly();
 			$this->showConfirmation( $subpage[1] ?? '' );
-			return;
-		}
-
-		if ( !FullProvidersGuard::ensure( $this, $this->extensionRegistry, $par ) ) {
 			return;
 		}
 
@@ -192,8 +192,7 @@ class SpecialRequestAccount extends SpecialRequest {
 
 	/** @inheritDoc */
 	protected function alterForm( HTMLForm $form ): void {
-		// validating the username needs every AuthManager provider
-		$form->addHiddenFields( AccountCreator::FULL_PROVIDERS_QUERY );
+		$form->addHiddenFields( AccountRequestRouter::AUTH_QUERY );
 	}
 
 	public function isValidUsername( ?string $username ): StatusValue|true {
@@ -307,6 +306,7 @@ class SpecialRequestAccount extends SpecialRequest {
 		], $this->getContext(), 'requestaccount-confirm' );
 
 		$form
+			->addHiddenFields( AccountRequestRouter::AUTH_QUERY )
 			->setWrapperLegendMsg( 'requestaccount-confirm-legend' )
 			->setSubmitTextMsg( 'requestaccount-confirm-submit' )
 			->setSubmitCallback( $this->confirmRequest( ... ) );

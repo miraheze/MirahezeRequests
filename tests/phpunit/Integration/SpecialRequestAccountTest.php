@@ -74,13 +74,13 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 
 	public function testOffersCcOnlyToLoggedInUsers(): void {
 		[ $html ] = $this->executeSpecialPage(
-			'', new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx', $this->getTestUser()->getAuthority()
+			'', new FauxRequest(), 'qqx', $this->getTestUser()->getAuthority()
 		);
 		$this->assertStringContainsString( '(requestaccount-username)', $html );
 		$this->assertStringContainsString( '(requestaccount-ccemail)', $html );
 
 		[ $html ] = $this->executeSpecialPage(
-			'', new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx'
+			'', new FauxRequest(), 'qqx'
 		);
 		$this->assertStringNotContainsString( '(requestaccount-ccemail)', $html );
 	}
@@ -89,7 +89,7 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 		$this->overrideConfigValue( 'MirahezeRequestsAccountRequestsOpen', false );
 
 		[ $html ] = $this->executeSpecialPage(
-			'', new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx'
+			'', new FauxRequest(), 'qqx'
 		);
 		$this->assertStringContainsString( '(requestaccount-closed)', $html );
 		$this->assertStringNotContainsString( '(requestaccount-username)', $html );
@@ -107,7 +107,7 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 				'wpexplanation' => str_repeat( 'A', FieldValidator::MAX_TEXT_LENGTH + 1 ),
 				'wpcomments' => '',
 				'wpconsent' => 1,
-				'usesul3' => '0',
+				'usesul3' => '1',
 			], true ),
 			'qqx'
 		);

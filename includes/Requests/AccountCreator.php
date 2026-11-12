@@ -21,9 +21,6 @@ use Wikimedia\Rdbms\IDBAccessObject;
 /** Creates accounts through AuthManager, so CentralAuth makes them global. */
 class AccountCreator {
 
-	/** SUL3 rejects creations on non-login domains; this forces SUL2 (T390751). */
-	public const FULL_PROVIDERS_QUERY = [ 'usesul3' => '0' ];
-
 	private bool $creating = false;
 
 	public function __construct(

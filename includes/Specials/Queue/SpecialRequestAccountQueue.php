@@ -12,7 +12,7 @@ use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
-use Miraheze\MirahezeRequests\Specials\FullProvidersGuard;
+use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
 use Miraheze\MirahezeRequests\Specials\Pager\RequestAccountQueuePager;
 use Miraheze\MirahezeRequests\Specials\Viewer\RequestAccountViewer;
 use Miraheze\MirahezeRequests\Specials\Viewer\RequestViewer;
@@ -22,6 +22,7 @@ class SpecialRequestAccountQueue extends RequestQueue {
 	public function __construct(
 		MirahezeRequestsDatabaseService $dbService,
 		UserFactory $userFactory,
+		private readonly AccountRequestRouter $accountRequestRouter,
 		private readonly AuthManager $authManager,
 		private readonly ExtensionRegistry $extensionRegistry,
 		private readonly FormatterFactory $formatterFactory,
@@ -49,13 +50,13 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$this->requestMailer,
 			$this->requestManager,
 			$this->dbService,
+			$this->accountRequestRouter,
 		);
 	}
 
 	/** @inheritDoc */
 	protected function lookupRequest( int $requestId ): void {
-		// the viewer checks usernames, which needs every auth provider
-		if ( !FullProvidersGuard::ensure( $this, $this->extensionRegistry, (string)$requestId ) ) {
+		if ( !$this->accountRequestRouter->ensureAuthenticationDomain( $this, (string)$requestId ) ) {
 			return;
 		}
 
@@ -64,6 +65,10 @@ class SpecialRequestAccountQueue extends RequestQueue {
 
 	/** @inheritDoc */
 	protected function showFilterAndPager(): void {
+		if ( !$this->accountRequestRouter->ensureQueueDomain( $this ) ) {
+			return;
+		}
+
 		// handlers view the queue regularly, so expired data gets purged
 		DeferredUpdates::addCallableUpdate( function () {
 			$this->requestManager->purgeExpiredData();

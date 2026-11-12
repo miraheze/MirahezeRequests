@@ -24,6 +24,7 @@ use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
 use Wikimedia\Codex\Utility\Codex;
 
 class RequestAccountViewer extends RequestViewer {
@@ -40,6 +41,7 @@ class RequestAccountViewer extends RequestViewer {
 		private readonly AccountRequestMailer $requestMailer,
 		private readonly RequestAccountManager $requestManager,
 		private readonly MirahezeRequestsDatabaseService $dbService,
+		private readonly AccountRequestRouter $accountRequestRouter,
 	) {
 	}
 
@@ -359,7 +361,7 @@ class RequestAccountViewer extends RequestViewer {
 				SpecialPage::getTitleFor( 'RequestAccountQueue', (string)$other['id'] ),
 				"#{$other['id']}",
 				[],
-				AccountCreator::FULL_PROVIDERS_QUERY
+				AccountRequestRouter::AUTH_QUERY
 			) . ' ' . $this->context->msg( 'parentheses' )
 				->params( $this->context->msg( "mirahezerequests-status-{$other['status']}" )->text() )
 				->escaped();
@@ -443,7 +445,7 @@ class RequestAccountViewer extends RequestViewer {
 		$htmlForm = new CodexHTMLFormTabs( $formDescriptor, $this->context, 'requestaccount-section' );
 
 		$htmlForm->setId( 'mirahezerequests-requestaccount-viewer' );
-		$htmlForm->addHiddenFields( AccountCreator::FULL_PROVIDERS_QUERY );
+		$htmlForm->addHiddenFields( AccountRequestRouter::AUTH_QUERY );
 		$htmlForm->suppressDefaultSubmit();
 		$htmlForm->setSubmitCallback( $this->submitForm( ... ) );
 
@@ -513,7 +515,7 @@ class RequestAccountViewer extends RequestViewer {
 			$this->log( 'accept', '' );
 
 			$this->queueApprovalMail( $status->getValue() );
-			$this->redirectToRequest();
+			$this->redirectToQueue();
 
 			return true;
 		} finally {
@@ -547,7 +549,7 @@ class RequestAccountViewer extends RequestViewer {
 			$this->log( 'resend', '' );
 			$this->queueApprovalMail( $status->getValue() );
 			$queued = true;
-			$this->redirectToRequest();
+			$this->redirectToQueue();
 			return true;
 		} finally {
 			if ( !$queued ) {
@@ -608,7 +610,7 @@ class RequestAccountViewer extends RequestViewer {
 			return true;
 		}
 
-		$this->redirectToRequest();
+		$this->redirectToQueue();
 		return true;
 	}
 
@@ -621,10 +623,10 @@ class RequestAccountViewer extends RequestViewer {
 		$logEntry->publish( $logEntry->insert() );
 	}
 
-	private function redirectToRequest(): void {
+	private function redirectToQueue(): void {
 		// so reloading doesn't resubmit
 		$this->context->getOutput()->redirect(
-			$this->getRequestTitle()->getFullURL( AccountCreator::FULL_PROVIDERS_QUERY )
+			$this->accountRequestRouter->getQueueURL( [] )
 		);
 	}
 

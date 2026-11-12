@@ -72,6 +72,7 @@
 			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestAccount",
 			"services": [
 				"MirahezeRequestsDatabaseService",
+				"MirahezeRequestsAccountRequestRouter",
 				"ExtensionRegistry",
 				"MirahezeRequestsAccountRequestMailer",
 				"RequestAccountManager",
@@ -83,6 +84,7 @@
 			"services": [
 				"MirahezeRequestsDatabaseService",
 				"UserFactory",
+				"MirahezeRequestsAccountRequestRouter",
 				"AuthManager",
 				"ExtensionRegistry",
 				"FormatterFactory",

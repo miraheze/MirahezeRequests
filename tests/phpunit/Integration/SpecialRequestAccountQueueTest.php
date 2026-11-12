@@ -67,6 +67,12 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		return $manager->getStatus();
 	}
 
+	private function getTemporaryPasswordHash( string $name ): string {
+		return $this->getDb()->newSelectQueryBuilder()
+			->select( 'user_newpassword' )->from( 'user' )->where( [ 'user_name' => $name ] )
+			->caller( __METHOD__ )->fetchField();
+	}
+
 	/**
 	 * @param string $par
 	 * @param array $postData Posted if not empty; SpecialPageExecutor adds the edit token
@@ -75,7 +81,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 	private function executeAsHandler( string $par, array $postData ): string {
 		[ $html ] = $this->executeSpecialPage(
 			$par,
-			new FauxRequest( $postData + [ 'usesul3' => '0' ], (bool)$postData ),
+			new FauxRequest( $postData, (bool)$postData ),
 			'qqx',
 			$this->getTestSysop()->getAuthority()
 		);
@@ -92,13 +98,13 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$id = $this->newRequest( 'Own request', 'own@example.org', true, $requester );
 
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx', $this->getTestUser()->getAuthority()
+			(string)$id, new FauxRequest(), 'qqx', $this->getTestUser()->getAuthority()
 		);
 		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
 		$this->assertStringNotContainsString( 'own@example.org', $html );
 
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx', $requester
+			(string)$id, new FauxRequest(), 'qqx', $requester
 		);
 		$this->assertStringContainsString( 'own@example.org', $html );
 		$this->assertStringNotContainsString( 'submit-accept', $html, 'Read-only for the requester' );
@@ -125,7 +131,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		[ $html ] = $this->executeSpecialPage(
 			(string)$id,
-			new FauxRequest( [ 'usesul3' => '0' ] ),
+			new FauxRequest(),
 			'qqx',
 			$requester
 		);
@@ -133,11 +139,39 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'blocked@example.org', $html );
 	}
 
+	/** @dataProvider provideHandlingPost */
+	public function testRequesterHandlingPostsAreRejected( array $postData ): void {
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->never() )->method( 'sendApproved' );
+		$mailer->expects( $this->never() )->method( 'sendDeclined' );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+		$requester = $this->getMutableTestUser()->getUser();
+		$name = 'Unauthorized handling user';
+		$id = $this->newRequest( $name, 'unauthorized@example.org', true, $requester );
+
+		[ $html ] = $this->executeSpecialPage(
+			(string)$id, new FauxRequest( $postData, true ), 'qqx', $requester
+		);
+
+		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
+		$this->assertSame( MirahezeRequestsStatus::Pending->value, $this->getRequestStatus( $id ) );
+		$this->assertSame( '', $this->getManager()->getNotes() );
+		$this->assertNull( $this->getManager()->getCompletedTimestamp() );
+		$this->assertFalse( $this->getServiceContainer()->getUserFactory()->newFromName( $name )->isRegistered() );
+	}
+
+	public static function provideHandlingPost(): array {
+		return [
+			'accept' => [ [ 'wpsubmit-accept' => 1 ] ],
+			'decline' => [ [ 'wpsubmit-decline' => 1, 'wpsubmit-decline-reason' => 'Spam' ] ],
+		];
+	}
+
 	public function testLoggedOutRequestIsHandlersOnly(): void {
 		$id = $this->newRequest( 'Logged out', 'loggedout@example.org', true, null );
 
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx'
+			(string)$id, new FauxRequest(), 'qqx'
 		);
 		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
 	}
@@ -251,7 +285,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		$this->overrideConfigValue( 'MirahezeRequestsIPVisibilityGroups', [] );
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx', $this->getTestSysop()->getAuthority()
+			(string)$id, new FauxRequest(), 'qqx', $this->getTestSysop()->getAuthority()
 		);
 		$this->assertStringNotContainsString( '203.0.113.77', $html );
 		$this->assertStringNotContainsString( '(mirahezerequests-label-ip)', $html );
@@ -259,7 +293,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		$this->overrideConfigValue( 'MirahezeRequestsIPVisibilityGroups', [ 'sysop' ] );
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0' ] ), 'qqx', $this->getTestSysop()->getAuthority()
+			(string)$id, new FauxRequest(), 'qqx', $this->getTestSysop()->getAuthority()
 		);
 		$this->assertStringContainsString( '203.0.113.77', $html );
 		$this->assertStringContainsString( '(mirahezerequests-label-ip)', $html );
@@ -275,24 +309,58 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertSame( MirahezeRequestsStatus::Pending->value, $this->getRequestStatus( $id ) );
 	}
 
-	public function testDecline(): void {
+	/** @dataProvider provideDeclineMailOutcome */
+	public function testDecline( bool $mailSucceeds ): void {
 		$id = $this->newRequest( 'Declined user', 'declined@example.org', true, null );
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->once() )->method( 'sendDeclined' )
+			->with(
+				$this->callback( static fn ( RequestAccountManager $request ) => $request->getId() === $id ),
+				'Spam'
+			)
+			->willReturn( $mailSucceeds ? StatusValue::newGood() : StatusValue::newFatal( 'php-mail-error', 'SMTP' ) );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
 
-		$this->executeAsHandler( (string)$id, [
-			'wpsubmit-decline' => 1,
-			'wpsubmit-decline-reason' => 'Spam',
-		] );
+		[ $html, $response ] = $this->executeSpecialPage(
+			(string)$id,
+			new FauxRequest( [ 'wpsubmit-decline' => 1, 'wpsubmit-decline-reason' => 'Spam' ], true ),
+			'qqx',
+			$this->getTestSysop()->getAuthority()
+		);
 
 		$manager = $this->getManager();
 		$manager->getById( $id );
 		$this->assertSame( MirahezeRequestsStatus::Declined->value, $manager->getStatus() );
 		$this->assertSame( 'Spam', $manager->getNotes() );
+		if ( $mailSucceeds ) {
+			$this->assertSame(
+				SpecialPage::getTitleFor( 'RequestAccountQueue' )->getCanonicalURL(),
+				$response->getHeader( 'Location' )
+			);
+		} else {
+			$this->assertNull( $response->getHeader( 'Location' ) );
+			$this->assertStringContainsString( '(requestaccount-decline-mail-failed)', $html );
+		}
+	}
+
+	public static function provideDeclineMailOutcome(): array {
+		return [
+			'delivered' => [ true ],
+			'delivery failed' => [ false ],
+		];
 	}
 
 	public function testAcceptCreatesAccount(): void {
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->once() )->method( 'sendApproved' )->willReturn( StatusValue::newGood() );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
 		$id = $this->newRequest( 'Accepted user', 'accepted@example.org', true, null );
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::Sending->value, $this->getRequestStatus( $id ) );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
 
 		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
 		$user = $this->getServiceContainer()->getUserFactory()->newFromName( 'Accepted user' );
@@ -313,7 +381,8 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 				}
 			);
 		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
-		$id = $this->newRequest( 'Mail user' . mt_rand(), 'mail@example.org', true, null );
+		$name = 'Mail user' . mt_rand();
+		$id = $this->newRequest( $name, 'mail@example.org', true, null );
 		$otherId = $this->newRequest( 'Other mail user' . mt_rand(), 'othermail@example.org', true, null );
 		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
 		$lbFactory->beginPrimaryChanges( __METHOD__ );
@@ -332,7 +401,10 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$this->assertCount( 1, $sent );
 		$this->assertSame( $id, $sent[0][0], 'Mail must use the approved request, not the shared manager' );
-		$this->assertNotSame( '', $sent[0][1] );
+		$password = $this->getServiceContainer()->getPasswordFactory()->newFromCiphertext(
+			$this->getTemporaryPasswordHash( $name )
+		);
+		$this->assertTrue( $password->verify( $sent[0][1] ), 'The mailed password must match the committed account' );
 		$manager = $this->getManager();
 		$manager->getById( $id );
 		$this->assertSame(
@@ -367,8 +439,11 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$requester = $this->getMutableTestUser()->getUser();
 		$name = 'Retry mail user' . mt_rand();
 		$id = $this->newRequest( $name, 'retry@example.org', true, $requester );
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
 		$this->assertStringContainsString( $error, $this->getManager()->getNotes() );
 		$html = $this->executeAsHandler( (string)$id, [] );
@@ -377,12 +452,11 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringNotContainsString( '<script>test</script>', $html );
 
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '0', 'wpsubmit-resend' => 1 ], true ), 'qqx', $requester
+			(string)$id, new FauxRequest( [ 'usesul3' => '1', 'wpsubmit-resend' => 1 ], true ), 'qqx', $requester
 		);
 		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
 		$this->assertCount( 1, $passwords );
 
-		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
 		$lbFactory->beginPrimaryChanges( __METHOD__ );
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
 		$this->assertSame( MirahezeRequestsStatus::Sending->value, $this->getRequestStatus( $id ) );
@@ -392,19 +466,24 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
 		$this->assertNull( $this->getManager()->getCompletedTimestamp() );
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
 		$this->assertNotNull( $this->getManager()->getCompletedTimestamp() );
 		$this->assertTrue( $this->getTestSysop()->getUser()->equals( $this->getManager()->getCompletedUser() ) );
 		$this->assertCount( 3, array_unique( $passwords ) );
 
-		$row = $this->getDb()->newSelectQueryBuilder()
-			->select( 'user_newpassword' )->from( 'user' )->where( [ 'user_name' => $name ] )
-			->caller( __METHOD__ )->fetchRow();
-		$password = $this->getServiceContainer()->getPasswordFactory()->newFromCiphertext( $row->user_newpassword );
+		$passwordHash = $this->getTemporaryPasswordHash( $name );
+		$password = $this->getServiceContainer()->getPasswordFactory()->newFromCiphertext( $passwordHash );
 		$this->assertTrue( $password->verify( $passwords[2] ), 'The mailed password must be usable' );
 		$this->assertFalse( $password->verify( $passwords[0] ), 'The original password must be replaced' );
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
+		$this->assertSame( $passwordHash, $this->getTemporaryPasswordHash( $name ) );
+		$this->assertCount( 3, $passwords, 'Completed deliveries must not send another email' );
 	}
 
 	public function testRetryRejectsChangedEmail(): void {
@@ -414,7 +493,10 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
 		$name = 'Changed retry mail user' . mt_rand();
 		$id = $this->newRequest( $name, 'original@example.org', true, null );
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
 		$user->setEmail( 'changed@example.org' );
 		$user->confirmEmail();
@@ -426,13 +508,29 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 	}
 
 	public function testMailExceptionLeavesRequestRetryable(): void {
+		$attempts = 0;
 		$mailer = $this->createMock( AccountRequestMailer::class );
-		$mailer->expects( $this->once() )->method( 'sendApproved' )
-			->willThrowException( new \RuntimeException( 'SMTP' ) );
+		$mailer->expects( $this->exactly( 2 ) )->method( 'sendApproved' )
+			->willReturnCallback( static function () use ( &$attempts ) {
+				if ( ++$attempts === 1 ) {
+					throw new \RuntimeException( 'SMTP' );
+				}
+				return StatusValue::newGood();
+			} );
 		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
 		$id = $this->newRequest( 'Mail exception user' . mt_rand(), 'exception@example.org', true, null );
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
 
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
 		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+		$this->assertStringContainsString( 'submit-resend', $this->executeAsHandler( (string)$id, [] ) );
+
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::Sending->value, $this->getRequestStatus( $id ) );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
 	}
 }
