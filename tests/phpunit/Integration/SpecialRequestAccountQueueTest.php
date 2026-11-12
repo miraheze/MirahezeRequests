@@ -7,8 +7,10 @@ use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\User\UserIdentity;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use SpecialPageTestBase;
+use StatusValue;
 
 /**
  * @group Database
@@ -53,7 +55,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		if ( $confirm ) {
 			$manager->getById( $id );
-			$manager->confirm();
+			$this->assertStatusGood( $manager->confirm() );
 		}
 
 		return $id;
@@ -131,16 +133,6 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'blocked@example.org', $html );
 	}
 
-	public function testRequesterCannotHandleOwnRequest(): void {
-		$requester = $this->getMutableTestUser()->getUser();
-		$id = $this->newRequest( 'Own request', 'own@example.org', true, $requester );
-
-		$request = new FauxRequest( [ 'wpsubmit-accept' => 1, 'usesul3' => '0' ], true );
-		$this->executeSpecialPage( (string)$id, $request, 'qqx', $requester );
-
-		$this->assertSame( MirahezeRequestsStatus::Pending->value, $this->getRequestStatus( $id ) );
-	}
-
 	public function testLoggedOutRequestIsHandlersOnly(): void {
 		$id = $this->newRequest( 'Logged out', 'loggedout@example.org', true, null );
 
@@ -154,12 +146,18 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->newRequest( 'Queued', 'queued@example.org', true, null );
 		$this->newRequest( 'Unconfirmed', 'unconfirmed@example.org', false, null );
 
-		foreach ( [ 'pending', 'unconfirmed', '*' ] as $status ) {
+		$views = [
+			'default open view' => [],
+			'pending filter' => [ 'status' => 'pending' ],
+			'all view' => [ 'status' => '*', 'type' => 'all' ],
+		];
+
+		foreach ( $views as $label => $params ) {
 			[ $html ] = $this->executeSpecialPage(
-				'', new FauxRequest( [ 'status' => $status ] ), 'qqx', $this->getTestSysop()->getAuthority()
+				'', new FauxRequest( $params ), 'qqx', $this->getTestSysop()->getAuthority()
 			);
-			$this->assertStringContainsString( 'queued@example.org', $html, $status );
-			$this->assertStringNotContainsString( 'unconfirmed@example.org', $html, $status );
+			$this->assertStringContainsString( 'queued@example.org', $html, $label );
+			$this->assertStringNotContainsString( 'unconfirmed@example.org', $html, $label );
 		}
 	}
 
@@ -205,6 +203,18 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'name="type"', $html );
 		$this->assertStringContainsString( 'value="closed"', $html );
 		$this->assertStringNotContainsString( 'name="wptype"', $html );
+	}
+
+	public function testUsernameOfZeroFiltersTheQueue(): void {
+		$this->newRequest( '0', 'zero@example.org', true, null );
+		$this->newRequest( 'Other name', 'other@example.org', true, null );
+
+		[ $html ] = $this->executeSpecialPage(
+			'', new FauxRequest( [ 'username' => '0' ] ), 'qqx', $this->getTestSysop()->getAuthority()
+		);
+
+		$this->assertStringContainsString( 'zero@example.org', $html );
+		$this->assertStringNotContainsString( 'other@example.org', $html );
 	}
 
 	public function testLoggedOutRequestShowsAnonymousRequester(): void {
@@ -259,8 +269,9 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$existingName = $this->getTestUser()->getUser()->getName();
 		$id = $this->newRequest( $existingName, 'taken@example.org', true, null );
 
-		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$html = $this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
 
+		$this->assertStringContainsString( 'userexists', $html, 'The failure must be reported' );
 		$this->assertSame( MirahezeRequestsStatus::Pending->value, $this->getRequestStatus( $id ) );
 	}
 
@@ -286,5 +297,55 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
 		$user = $this->getServiceContainer()->getUserFactory()->newFromName( 'Accepted user' );
 		$this->assertTrue( $user->isRegistered() );
+	}
+
+	/** @dataProvider provideApprovalMailOutcome */
+	public function testApprovalMailWaitsForCommit( bool $commit, bool $mailSucceeds ): void {
+		$sent = [];
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $commit ? $this->once() : $this->never() )
+			->method( 'sendApproved' )
+			->willReturnCallback(
+				static function ( RequestAccountManager $request, string $password ) use ( &$sent, $mailSucceeds ) {
+					$sent[] = [ $request->getId(), $password ];
+					return $mailSucceeds ? StatusValue::newGood() :
+						StatusValue::newFatal( 'php-mail-error', 'Notification failure' );
+				}
+			);
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+		$id = $this->newRequest( 'Mail user' . mt_rand(), 'mail@example.org', true, null );
+		$otherId = $this->newRequest( 'Other mail user' . mt_rand(), 'othermail@example.org', true, null );
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
+
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
+		$this->assertSame( [], $sent, 'Uncommitted accounts must not be mailed' );
+		$this->getManager()->getById( $otherId );
+
+		if ( !$commit ) {
+			$lbFactory->rollbackPrimaryChanges( __METHOD__ );
+			$this->assertSame( [], $sent );
+			return;
+		}
+
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
+		$this->assertCount( 1, $sent );
+		$this->assertSame( $id, $sent[0][0], 'Mail must use the approved request, not the shared manager' );
+		$this->assertNotSame( '', $sent[0][1] );
+		$manager = $this->getManager();
+		$manager->getById( $id );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $manager->getStatus() );
+		if ( !$mailSucceeds ) {
+			$this->assertStringContainsString( 'Notification failure', $manager->getNotes() );
+		}
+	}
+
+	public static function provideApprovalMailOutcome(): array {
+		return [
+			'committed' => [ true, true ],
+			'delivery failed' => [ true, false ],
+			'rolled back' => [ false, true ],
+		];
 	}
 }

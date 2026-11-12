@@ -90,7 +90,7 @@ class RequestAccountManagerTest extends MediaWikiIntegrationTestCase {
 		[ $id ] = $this->insertUnconfirmed( $overrides );
 		$manager = $this->getManager();
 		$manager->getById( $id );
-		$manager->confirm();
+		$this->assertStatusGood( $manager->confirm() );
 		return $id;
 	}
 
@@ -103,10 +103,54 @@ class RequestAccountManagerTest extends MediaWikiIntegrationTestCase {
 
 		$manager->getById( $id );
 		$this->assertFalse( $manager->isInQueue(), 'Unconfirmed requests are not in the queue' );
-		$this->assertTrue( $manager->confirm() );
+		$this->assertStatusGood( $manager->confirm() );
 		$this->assertTrue( $manager->isInQueue() );
-		$this->assertFalse( $manager->confirm(), 'A request can only be confirmed once' );
+		$this->assertStatusError( 'requestaccount-confirm-invalid', $manager->confirm() );
 		$this->assertNull( $manager->findUnconfirmedIdByToken( $token ), 'The token is single use' );
+	}
+
+	public function testOnlyOneRequestForANameCanBeConfirmed(): void {
+		$name = 'SharedName' . mt_rand();
+		[ $firstId ] = $this->insertUnconfirmed( [ 'request_username' => $name ] );
+		[ $secondId, $secondToken ] = $this->insertUnconfirmed( [ 'request_username' => $name ] );
+		$first = $this->getManager();
+		$first->getById( $firstId );
+		$second = $this->getManager();
+		$second->getById( $secondId );
+
+		$this->assertStatusGood( $first->confirm() );
+		$this->assertStatusError( 'requestaccount-error-duplicate-username', $second->confirm() );
+		$this->assertTrue(
+			$first->transitionStatus(
+				MirahezeRequestsStatus::Pending->value,
+				MirahezeRequestsStatus::Starting->value
+			),
+			'The first request must be claimed to test the starting state'
+		);
+		$this->assertStatusError( 'requestaccount-error-duplicate-username', $second->confirm() );
+
+		$second->getById( $secondId );
+		$this->assertSame( MirahezeRequestsStatus::Unconfirmed->value, $second->getStatus() );
+		$this->assertSame( $secondId, $second->findUnconfirmedIdByToken( $secondToken ) );
+
+		$first->resolve( MirahezeRequestsStatus::Declined->value, $this->getTestSysop()->getUser(), 'Declined' );
+		$this->assertStatusGood( $second->confirm(), 'A closed request no longer reserves the name' );
+	}
+
+	public function testDeliveryNotesPreserveTheResolution(): void {
+		$id = $this->insertPending();
+		$manager = $this->getManager();
+		$manager->getById( $id );
+		$performer = $this->getTestSysop()->getUser();
+		$manager->resolve( MirahezeRequestsStatus::Complete->value, $performer, 'Created' );
+		$completedAt = $manager->getCompletedTimestamp();
+
+		$manager->setNotes( 'Notification failed' );
+		$manager->getById( $id );
+		$this->assertSame( 'Notification failed', $manager->getNotes() );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $manager->getStatus() );
+		$this->assertSame( $completedAt, $manager->getCompletedTimestamp() );
+		$this->assertTrue( $performer->equals( $manager->getCompletedUser() ) );
 	}
 
 	public function testTransitionStatusIsAtomic(): void {

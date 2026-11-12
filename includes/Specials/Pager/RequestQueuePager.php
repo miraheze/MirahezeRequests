@@ -53,7 +53,7 @@ abstract class RequestQueuePager extends TablePager {
 			'joins_conds' => [],
 		];
 
-		if ( $this->requester ) {
+		if ( $this->requester !== '' ) {
 			$user = $this->userFactory->newFromName( $this->requester );
 			$info['conds']['request_actor'] = $user ? $user->getActorId() : 0;
 		}

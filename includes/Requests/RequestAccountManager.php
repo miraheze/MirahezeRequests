@@ -13,6 +13,8 @@ use MediaWiki\User\UserIdentity;
 use Miraheze\MirahezeRequests\ConfigNames;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use StatusValue;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IReadableDatabase;
 use Wikimedia\Rdbms\ReadOnlyMode;
 use Wikimedia\Rdbms\SelectQueryBuilder;
@@ -113,31 +115,60 @@ class RequestAccountManager extends RequestManager {
 	/**
 	 * Puts the loaded unconfirmed request into the queue.
 	 *
-	 * @return bool False if it was confirmed concurrently
+	 * @return StatusValue Fatal if already confirmed or another request has the name
 	 */
-	public function confirm(): bool {
+	public function confirm(): StatusValue {
 		$dbw = $this->dbService->getDbw();
 
-		$dbw->newUpdateQueryBuilder()
-			->update( self::TABLE )
-			->set( [
-				'request_status' => MirahezeRequestsStatus::Pending->value,
-				'request_confirmed_timestamp' => $dbw->timestamp(),
-				'request_token' => null,
-			] )
-			->where( [
-				'request_id' => $this->getId(),
-				'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
-			] )
-			->caller( __METHOD__ )
-			->execute();
+		return $dbw->doAtomicSection( __METHOD__, function ( IDatabase $dbw, string $fname ): StatusValue {
+			// Lock all requests for this name until commit to serialize confirmations.
+			$requests = $dbw->newSelectQueryBuilder()
+				->select( [ 'request_id', 'request_status' ] )
+				->from( self::TABLE )
+				->where( [ 'request_username' => $this->getUsername() ] )
+				->orderBy( 'request_id' )
+				->forUpdate()
+				->caller( $fname )
+				->fetchResultSet();
 
-		if ( $dbw->affectedRows() === 0 ) {
-			return false;
-		}
+			$unconfirmed = false;
+			$duplicate = false;
+			foreach ( $requests as $request ) {
+				if ( (int)$request->request_id === $this->getId() ) {
+					$unconfirmed = $request->request_status === MirahezeRequestsStatus::Unconfirmed->value;
+				} elseif ( in_array( $request->request_status, MirahezeRequestsStatus::OPEN, true ) ) {
+					$duplicate = true;
+				}
+			}
 
-		$this->row->request_status = MirahezeRequestsStatus::Pending->value;
-		return true;
+			if ( !$unconfirmed ) {
+				return StatusValue::newFatal( 'requestaccount-confirm-invalid' );
+			}
+			if ( $duplicate ) {
+				return StatusValue::newFatal( 'requestaccount-error-duplicate-username' );
+			}
+
+			$dbw->newUpdateQueryBuilder()
+				->update( self::TABLE )
+				->set( [
+					'request_status' => MirahezeRequestsStatus::Pending->value,
+					'request_confirmed_timestamp' => $dbw->timestamp(),
+					'request_token' => null,
+				] )
+				->where( [
+					'request_id' => $this->getId(),
+					'request_status' => MirahezeRequestsStatus::Unconfirmed->value,
+				] )
+				->caller( $fname )
+				->execute();
+
+			if ( $dbw->affectedRows() === 0 ) {
+				return StatusValue::newFatal( 'requestaccount-confirm-invalid' );
+			}
+
+			$this->row->request_status = MirahezeRequestsStatus::Pending->value;
+			return StatusValue::newGood();
+		} );
 	}
 
 	/**
@@ -190,6 +221,18 @@ class RequestAccountManager extends RequestManager {
 		$this->row->request_status = $status;
 		$this->row->request_completed_timestamp = $timestamp;
 		$this->row->request_completed_actor = $performerActorId;
+		$this->row->request_notes = $notes;
+	}
+
+	/** Update delivery notes without changing who resolved the request or when. */
+	public function setNotes( string $notes ): void {
+		$this->dbService->getDbw()->newUpdateQueryBuilder()
+			->update( self::TABLE )
+			->set( [ 'request_notes' => $notes ] )
+			->where( [ 'request_id' => $this->getId() ] )
+			->caller( __METHOD__ )
+			->execute();
+
 		$this->row->request_notes = $notes;
 	}
 

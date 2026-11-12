@@ -22,6 +22,7 @@ use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
+use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Wikimedia\Codex\Utility\Codex;
 
 class RequestAccountViewer extends RequestViewer {
@@ -37,6 +38,7 @@ class RequestAccountViewer extends RequestViewer {
 		private readonly AccountCreator $accountCreator,
 		private readonly AccountRequestMailer $requestMailer,
 		private readonly RequestAccountManager $requestManager,
+		private readonly MirahezeRequestsDatabaseService $dbService,
 	) {
 	}
 
@@ -49,8 +51,9 @@ class RequestAccountViewer extends RequestViewer {
 			return [];
 		}
 
-		// Handlers can view any request; the requester can view their
-		// own, read-only - otherwise the "request filed" success link 403s.
+		// Handlers can view and handle any request, including their own.
+		// Other requesters can view their own read-only - otherwise the
+		// "request filed" success link 403s.
 		$isHandler = $this->isHandler();
 		$requester = $this->requestManager->getRequester();
 		$isOwner = $requester && $this->context->getUser()->equals( $requester );
@@ -442,7 +445,7 @@ class RequestAccountViewer extends RequestViewer {
 		array $formData,
 		HTMLForm $form,
 	): bool|Status {
-		// requesters get no buttons, but could still post
+		// Non-handlers get no buttons, but could still post
 		if ( !$this->isHandler() ) {
 			return Status::newFatal( 'mirahezerequests-nopermission' );
 		}
@@ -487,17 +490,28 @@ class RequestAccountViewer extends RequestViewer {
 				return $status;
 			}
 
-			$mailStatus = $this->requestMailer->sendApproved( $this->requestManager, $status->getValue() );
-			$notes = $mailStatus->isGood() ?
-				$this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text() :
-				$this->context->msg( 'requestaccount-notes-created-mail-failed' )
-					->params( $this->statusFormatter->getMessage( $mailStatus ) )
-					->inContentLanguage()
-					->text();
-
+			$notes = $this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text();
 			$this->requestManager->resolve( MirahezeRequestsStatus::Complete->value, $user, $notes );
 			$completed = true;
 			$this->log( 'accept', '' );
+
+			// The shared manager may load another request before the callback runs.
+			$request = clone $this->requestManager;
+			$temporaryPassword = $status->getValue();
+			$this->dbService->getDbw()->onTransactionCommitOrIdle(
+				function () use ( $request, $temporaryPassword ): void {
+					$mailStatus = $this->requestMailer->sendApproved( $request, $temporaryPassword );
+					if ( !$mailStatus->isGood() ) {
+						$request->setNotes(
+							$this->context->msg( 'requestaccount-notes-created-mail-failed' )
+								->params( $this->statusFormatter->getMessage( $mailStatus ) )
+								->inContentLanguage()
+								->text()
+						);
+					}
+				},
+				__METHOD__
+			);
 			$this->redirectToRequest();
 
 			return true;

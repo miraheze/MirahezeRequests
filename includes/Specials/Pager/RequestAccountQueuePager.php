@@ -150,7 +150,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 	protected function getExtraConds(): array {
 		$conds = [];
 
-		if ( $this->username ) {
+		if ( $this->username !== '' ) {
 			$conds['request_username'] = $this->username;
 		}
 

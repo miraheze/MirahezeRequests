@@ -91,7 +91,7 @@
 	"requestaccount-same-email-none": "None",
 	"requestaccount-success": "'''Your request has not been submitted yet.''' We have sent a confirmation email to $1. Open the link in that email and press the \"Confirm\" button to submit your request.\n\nThe link expires in $2. If the email does not arrive, please check your spam folder.",
 	"requestaccount-warning-name-check": "When it was submitted, the username was refused by the following check. Override it if you have the right to, or ask the requester for another username.",
-	"requestaccount-warning-ip-blocked": "Shown to handlers who are not allowed to see IP addresses when the IP address the request was submitted from is blocked. The details are hidden because they contain the IP address or range.",
+	"requestaccount-warning-ip-blocked": "The IP address this request was submitted from is blocked. You do not have permission to view the block details because they contain the IP address or range.",
 	"requestaccount-warning-not-creatable": "The account \"$1\" cannot currently be created: $2",
 	"mirahezerequests-error-too-long": "This is too long. It may be at most $1 {{PLURAL:$1|character|characters}}.",
 	"requestaccount-globalblock-reason": "What is the reason for the global block?",

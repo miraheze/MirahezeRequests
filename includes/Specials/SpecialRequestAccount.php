@@ -26,7 +26,7 @@ use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use StatusValue;
 
 class SpecialRequestAccount extends SpecialRequest {
-    // should be customizable in config?
+	// should be customizable in config?
 	public const GLOBALBLOCK_REASONS = [
 		'crosswiki-abuse',
 		'crosswiki-spam',
@@ -332,13 +332,9 @@ class SpecialRequestAccount extends SpecialRequest {
 	}
 
 	private function confirmRequest(): Status {
-		// may have changed since the email was sent
-		if ( $this->requestManager->hasOpenRequestForName( $this->requestManager->getUsername() ) ) {
-			return Status::newFatal( 'requestaccount-error-duplicate-username' );
-		}
-
-		if ( !$this->requestManager->confirm() ) {
-			return Status::newFatal( 'requestaccount-confirm-invalid' );
+		$status = $this->requestManager->confirm();
+		if ( !$status->isGood() ) {
+			return Status::wrap( $status );
 		}
 
 		$logEntry = new ManualLogEntry( 'requestaccount', 'request' );

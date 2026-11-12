@@ -48,6 +48,7 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$this->accountCreator,
 			$this->requestMailer,
 			$this->requestManager,
+			$this->dbService,
 		);
 	}
 

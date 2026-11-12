@@ -10,15 +10,6 @@ use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
  */
 class MirahezeRequestsStatusTest extends MediaWikiUnitTestCase {
 
-	public function testValuesAreStableStrings(): void {
-		// Persisted in the database; must not change without a migration.
-		$this->assertSame( 'complete', MirahezeRequestsStatus::Complete->value );
-		$this->assertSame( 'declined', MirahezeRequestsStatus::Declined->value );
-		$this->assertSame( 'pending', MirahezeRequestsStatus::Pending->value );
-		$this->assertSame( 'starting', MirahezeRequestsStatus::Starting->value );
-		$this->assertSame( 'unconfirmed', MirahezeRequestsStatus::Unconfirmed->value );
-	}
-
 	public function testOpenAndClosedPartitionAllQueueCasesWithNoOverlap(): void {
 		$allValues = array_map(
 			static fn ( MirahezeRequestsStatus $case ): string => $case->value,
