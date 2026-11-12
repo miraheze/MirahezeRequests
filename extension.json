@@ -1,6 +1,10 @@
 {
 	"name": "MirahezeRequests",
-	"author": "Pskyechology",
+	"author": [
+		"Pskyechology",
+		"Reception123",
+		"Waki285"
+	],
 	"url": "https://github.com/miraheze/MirahezeRequests",
 	"descriptionmsg": "mirahezerequests-desc",
 	"namemsg": "mirahezerequests-extensionname",

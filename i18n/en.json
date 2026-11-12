@@ -1,7 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Pskyechology"
+			"Pskyechology",
+			"Reception123",
+			"Waki285"
 		]
 	},
 	"mirahezerequests-desc": "Miraheze-specific extension for facilitating and automating various user requests",
