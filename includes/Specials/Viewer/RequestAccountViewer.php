@@ -8,6 +8,7 @@ use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
+use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Message\Message;
 use MediaWiki\Registration\ExtensionRegistry;
@@ -165,7 +166,8 @@ class RequestAccountViewer extends RequestViewer {
 			];
 		}
 
-		if ( $this->requestManager->isFinalized() ) {
+		$canRetryMail = $this->canRetryApprovalMail();
+		if ( $this->requestManager->isFinalized() || $canRetryMail ) {
 			$formDescriptor['resolved-info'] = [
 				'type' => 'info',
 				'default' => $this->buildResolvedInfoHtml(),
@@ -173,6 +175,13 @@ class RequestAccountViewer extends RequestViewer {
 				'section' => 'details',
 			];
 
+			if ( $canRetryMail && $isHandler ) {
+				$formDescriptor['submit-resend'] = [
+					'type' => 'submit',
+					'buttonlabel-message' => 'requestaccount-resend',
+					'section' => 'handling',
+				];
+			}
 			return $formDescriptor;
 		}
 
@@ -191,6 +200,10 @@ class RequestAccountViewer extends RequestViewer {
 
 	private function isHandler(): bool {
 		return $this->context->getAuthority()->isAllowed( 'handle-requestaccount' );
+	}
+
+	private function canRetryApprovalMail(): bool {
+		return $this->requestManager->getStatus() === MirahezeRequestsStatus::MailFailed->value;
 	}
 
 	private function getHandlingDescriptor( bool $canSeeIp ): array {
@@ -450,6 +463,10 @@ class RequestAccountViewer extends RequestViewer {
 			return Status::newFatal( 'mirahezerequests-nopermission' );
 		}
 
+		if ( isset( $formData['submit-resend'] ) ) {
+			return $this->retryApprovalMail();
+		}
+
 		if ( $this->requestManager->isFinalized() ) {
 			return Status::newFatal( 'mirahezerequests-status-conflict' );
 		}
@@ -491,27 +508,11 @@ class RequestAccountViewer extends RequestViewer {
 			}
 
 			$notes = $this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text();
-			$this->requestManager->resolve( MirahezeRequestsStatus::Complete->value, $user, $notes );
+			$this->requestManager->resolve( MirahezeRequestsStatus::Sending->value, $user, $notes );
 			$completed = true;
 			$this->log( 'accept', '' );
 
-			// The shared manager may load another request before the callback runs.
-			$request = clone $this->requestManager;
-			$temporaryPassword = $status->getValue();
-			$this->dbService->getDbw()->onTransactionCommitOrIdle(
-				function () use ( $request, $temporaryPassword ): void {
-					$mailStatus = $this->requestMailer->sendApproved( $request, $temporaryPassword );
-					if ( !$mailStatus->isGood() ) {
-						$request->setNotes(
-							$this->context->msg( 'requestaccount-notes-created-mail-failed' )
-								->params( $this->statusFormatter->getMessage( $mailStatus ) )
-								->inContentLanguage()
-								->text()
-						);
-					}
-				},
-				__METHOD__
-			);
+			$this->queueApprovalMail( $status->getValue() );
 			$this->redirectToRequest();
 
 			return true;
@@ -523,6 +524,70 @@ class RequestAccountViewer extends RequestViewer {
 				);
 			}
 		}
+	}
+
+	private function retryApprovalMail(): bool|Status {
+		if ( !$this->canRetryApprovalMail() || !$this->requestManager->transitionStatus(
+			MirahezeRequestsStatus::MailFailed->value, MirahezeRequestsStatus::Sending->value
+		) ) {
+			return Status::newFatal( 'mirahezerequests-status-conflict' );
+		}
+
+		$queued = false;
+		try {
+			$status = $this->accountCreator->reissueTemporaryPassword(
+				$this->requestManager->getUsername(),
+				$this->requestManager->getEmail(),
+				$this->context->getUser()
+			);
+			if ( !$status->isGood() ) {
+				return $status;
+			}
+
+			$this->log( 'resend', '' );
+			$this->queueApprovalMail( $status->getValue() );
+			$queued = true;
+			$this->redirectToRequest();
+			return true;
+		} finally {
+			if ( !$queued ) {
+				$this->requestManager->transitionStatus(
+					MirahezeRequestsStatus::Sending->value, MirahezeRequestsStatus::MailFailed->value
+				);
+			}
+		}
+	}
+
+	private function queueApprovalMail( string $temporaryPassword ): void {
+		// The shared manager may load another request before the callback runs.
+		$request = clone $this->requestManager;
+		$this->dbService->getDbw()->onTransactionCommitOrIdle(
+			function () use ( $request, $temporaryPassword ): void {
+				$success = false;
+				$notes = $this->context->msg( 'requestaccount-notes-mail-interrupted' )->inContentLanguage()->text();
+				try {
+					$mailStatus = $this->requestMailer->sendApproved( $request, $temporaryPassword );
+					$success = $mailStatus->isGood();
+					$notes = $success ?
+						$this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text() :
+						$this->context->msg( 'requestaccount-notes-created-mail-failed' )
+							->params( implode( "\n", array_map(
+								static fn ( $message ) => Message::newFromSpecifier( $message )
+									->inContentLanguage()->plain(),
+								$mailStatus->getMessages()
+							) ) )
+							->inContentLanguage()->plain();
+				} catch ( \Throwable $e ) {
+					LoggerFactory::getInstance( 'MirahezeRequests' )->error(
+						'Account notification failed for request {requestId}',
+						[ 'requestId' => $request->getId(), 'exception' => $e ]
+					);
+				} finally {
+					$request->finishApprovalMail( $success, $notes );
+				}
+			},
+			__METHOD__
+		);
 	}
 
 	private function decline( array $formData ): bool|Status {

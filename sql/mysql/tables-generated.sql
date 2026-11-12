@@ -21,7 +21,8 @@ CREATE TABLE /*_*/account_requests (
   request_explanation MEDIUMBLOB NOT NULL,
   request_status ENUM(
     'complete', 'declined', 'pending',
-    'starting', 'unconfirmed'
+    'starting', 'unconfirmed', 'mailfailed',
+    'sending'
   ) NOT NULL,
   request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
   request_comments MEDIUMBLOB NOT NULL,

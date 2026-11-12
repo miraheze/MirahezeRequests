@@ -124,6 +124,29 @@ class AccountCreator {
 		return Status::newGood( $passwordRequest->password );
 	}
 
+	public function reissueTemporaryPassword( string $name, string $email, User $handler ): Status {
+		$user = $this->userFactory->newFromName( $name );
+		$user?->load( IDBAccessObject::READ_LATEST );
+		if ( !$user || !$user->isRegistered() || !$user->isEmailConfirmed() || $user->getEmail() !== $email ) {
+			return Status::newFatal( 'requestaccount-error-reissue-email' );
+		}
+
+		$passwordRequest = TemporaryPasswordAuthenticationRequest::newRandom();
+		$passwordRequest->username = $name;
+		$passwordRequest->mailpassword = false;
+		$passwordRequest->caller = $handler->getName();
+		$status = $this->authManager->allowsAuthenticationDataChange( $passwordRequest );
+		if ( !$status->isGood() ) {
+			return $status;
+		}
+		if ( $status->getValue() !== null ) {
+			return Status::newFatal( 'authmanager-change-not-supported' );
+		}
+
+		$this->authManager->changeAuthenticationData( $passwordRequest );
+		return Status::newGood( $passwordRequest->password );
+	}
+
 	/**
 	 * @param User $handler
 	 * @param AuthenticationRequest[] $authRequests

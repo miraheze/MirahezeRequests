@@ -291,6 +291,8 @@ class RequestAccountManagerTest extends MediaWikiIntegrationTestCase {
 		return [
 			'pending is not finalized' => [ MirahezeRequestsStatus::Pending->value, false ],
 			'starting is finalized (already being processed)' => [ MirahezeRequestsStatus::Starting->value, true ],
+			'sending cannot be handled' => [ MirahezeRequestsStatus::Sending->value, true ],
+			'failed mail can be retried' => [ MirahezeRequestsStatus::MailFailed->value, false ],
 			'complete is finalized' => [ MirahezeRequestsStatus::Complete->value, true ],
 			'declined is finalized' => [ MirahezeRequestsStatus::Declined->value, true ],
 		];

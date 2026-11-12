@@ -112,6 +112,8 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		return match ( $status ) {
 			MirahezeRequestsStatus::Pending->value => 'Pending',
 			MirahezeRequestsStatus::Starting->value => 'Starting',
+			MirahezeRequestsStatus::Sending->value => 'Sending email',
+			MirahezeRequestsStatus::MailFailed->value => 'Email failed',
 			MirahezeRequestsStatus::Complete->value => 'Complete',
 			MirahezeRequestsStatus::Declined->value => 'Declined',
 			default => $status,

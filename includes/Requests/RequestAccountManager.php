@@ -197,13 +197,10 @@ class RequestAccountManager extends RequestManager {
 		return true;
 	}
 
-	/**
-	 * Marks the request as resolved: sets the final status, and records
-	 * when it was resolved, by whom, and any notes on the outcome.
-	 */
+	/** Record the handler and outcome, with a completion date only for closed requests. */
 	public function resolve( string $status, UserIdentity $performer, string $notes ): void {
 		$dbw = $this->dbService->getDbw();
-		$timestamp = $dbw->timestamp();
+		$timestamp = in_array( $status, MirahezeRequestsStatus::CLOSED, true ) ? $dbw->timestamp() : null;
 		$performerActorId = $this->actorNormalization->acquireActorId( $performer, $dbw );
 
 		$dbw->newUpdateQueryBuilder()
@@ -234,6 +231,28 @@ class RequestAccountManager extends RequestManager {
 			->execute();
 
 		$this->row->request_notes = $notes;
+	}
+
+	/** Preserve the approving handler when delivery is retried. */
+	public function finishApprovalMail( bool $success, string $notes ): void {
+		$dbw = $this->dbService->getDbw();
+		$values = [
+			'request_status' => $success ? MirahezeRequestsStatus::Complete->value :
+				MirahezeRequestsStatus::MailFailed->value,
+			'request_completed_timestamp' => $success ? $dbw->timestamp() : null,
+			'request_notes' => $notes,
+		];
+		$dbw->newUpdateQueryBuilder()
+			->update( self::TABLE )
+			->set( $values )
+			->where( [ 'request_id' => $this->getId(), 'request_status' => MirahezeRequestsStatus::Sending->value ] )
+			->caller( __METHOD__ )
+			->execute();
+		if ( $dbw->affectedRows() ) {
+			foreach ( $values as $key => $value ) {
+				$this->row->$key = $value;
+			}
+		}
 	}
 
 	public function hasOpenRequestForName( string $name ): bool {
@@ -449,15 +468,13 @@ class RequestAccountManager extends RequestManager {
 		return $this->exists() && $this->getStatus() !== MirahezeRequestsStatus::Unconfirmed->value;
 	}
 
-	/**
-	 * Whether the request is complete, declined, or starting, and so
-	 * can no longer be accepted or declined again.
-	 */
+	/** Whether handling is finished or another handler is currently processing the request. */
 	public function isFinalized(): bool {
 		return in_array( $this->getStatus(), [
 			MirahezeRequestsStatus::Complete->value,
 			MirahezeRequestsStatus::Declined->value,
 			MirahezeRequestsStatus::Starting->value,
+			MirahezeRequestsStatus::Sending->value,
 		], true );
 	}
 

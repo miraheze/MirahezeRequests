@@ -319,7 +319,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$lbFactory->beginPrimaryChanges( __METHOD__ );
 
 		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
-		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
+		$this->assertSame( MirahezeRequestsStatus::Sending->value, $this->getRequestStatus( $id ) );
 		$this->assertSame( [], $sent, 'Uncommitted accounts must not be mailed' );
 		$this->getManager()->getById( $otherId );
 
@@ -335,9 +335,13 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertNotSame( '', $sent[0][1] );
 		$manager = $this->getManager();
 		$manager->getById( $id );
-		$this->assertSame( MirahezeRequestsStatus::Complete->value, $manager->getStatus() );
+		$this->assertSame(
+			$mailSucceeds ? MirahezeRequestsStatus::Complete->value : MirahezeRequestsStatus::MailFailed->value,
+			$manager->getStatus()
+		);
 		if ( !$mailSucceeds ) {
 			$this->assertStringContainsString( 'Notification failure', $manager->getNotes() );
+			$this->assertNull( $manager->getCompletedTimestamp() );
 		}
 	}
 
@@ -347,5 +351,88 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 			'delivery failed' => [ true, false ],
 			'rolled back' => [ false, true ],
 		];
+	}
+
+	public function testFailedMailCanBeRetriedUntilDeliverySucceeds(): void {
+		$passwords = [];
+		$error = "SMTP 421: \"try again\"\r\n<script>test</script> & &#34;";
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->exactly( 3 ) )->method( 'sendApproved' )
+			->willReturnCallback( static function ( $request, $password ) use ( &$passwords, $error ) {
+				$passwords[] = $password;
+				return count( $passwords ) < 3 ?
+					StatusValue::newFatal( 'php-mail-error', $error ) : StatusValue::newGood();
+			} );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+		$requester = $this->getMutableTestUser()->getUser();
+		$name = 'Retry mail user' . mt_rand();
+		$id = $this->newRequest( $name, 'retry@example.org', true, $requester );
+
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+		$this->assertStringContainsString( $error, $this->getManager()->getNotes() );
+		$html = $this->executeAsHandler( (string)$id, [] );
+		$this->assertStringContainsString( 'submit-resend', $html );
+		$this->assertStringNotContainsString( 'submit-accept', $html );
+		$this->assertStringNotContainsString( '<script>test</script>', $html );
+
+		[ $html ] = $this->executeSpecialPage(
+			(string)$id, new FauxRequest( [ 'usesul3' => '0', 'wpsubmit-resend' => 1 ], true ), 'qqx', $requester
+		);
+		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
+		$this->assertCount( 1, $passwords );
+
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory->beginPrimaryChanges( __METHOD__ );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::Sending->value, $this->getRequestStatus( $id ) );
+		$this->assertCount( 1, $passwords, 'Retries must wait for the new password to commit' );
+		$html = $this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$this->assertStringNotContainsString( 'submit-resend', $html, 'A delivery in progress cannot be retried' );
+		$lbFactory->commitPrimaryChanges( __METHOD__ );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+		$this->assertNull( $this->getManager()->getCompletedTimestamp() );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::Complete->value, $this->getRequestStatus( $id ) );
+		$this->assertNotNull( $this->getManager()->getCompletedTimestamp() );
+		$this->assertTrue( $this->getTestSysop()->getUser()->equals( $this->getManager()->getCompletedUser() ) );
+		$this->assertCount( 3, array_unique( $passwords ) );
+
+		$row = $this->getDb()->newSelectQueryBuilder()
+			->select( 'user_newpassword' )->from( 'user' )->where( [ 'user_name' => $name ] )
+			->caller( __METHOD__ )->fetchRow();
+		$password = $this->getServiceContainer()->getPasswordFactory()->newFromCiphertext( $row->user_newpassword );
+		$this->assertTrue( $password->verify( $passwords[2] ), 'The mailed password must be usable' );
+		$this->assertFalse( $password->verify( $passwords[0] ), 'The original password must be replaced' );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+	}
+
+	public function testRetryRejectsChangedEmail(): void {
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->once() )->method( 'sendApproved' )
+			->willReturn( StatusValue::newFatal( 'php-mail-error', 'SMTP 421' ) );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+		$name = 'Changed retry mail user' . mt_rand();
+		$id = $this->newRequest( $name, 'original@example.org', true, null );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$user = $this->getServiceContainer()->getUserFactory()->newFromName( $name );
+		$user->setEmail( 'changed@example.org' );
+		$user->confirmEmail();
+		$user->saveSettings();
+
+		$html = $this->executeAsHandler( (string)$id, [ 'wpsubmit-resend' => 1 ] );
+		$this->assertStringContainsString( 'requestaccount-error-reissue-email', $html );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+	}
+
+	public function testMailExceptionLeavesRequestRetryable(): void {
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->once() )->method( 'sendApproved' )
+			->willThrowException( new \RuntimeException( 'SMTP' ) );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+		$id = $this->newRequest( 'Mail exception user' . mt_rand(), 'exception@example.org', true, null );
+
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
 	}
 }

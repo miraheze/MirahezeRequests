@@ -15,6 +15,10 @@ enum MirahezeRequestsStatus: string {
 
 	case Starting = 'starting';
 
+	case MailFailed = 'mailfailed';
+
+	case Sending = 'sending';
+
 	/** Waiting for the requester to confirm their email address; not in the queue yet. */
 	case Unconfirmed = 'unconfirmed';
 
@@ -25,6 +29,8 @@ enum MirahezeRequestsStatus: string {
 	public const array OPEN = [
 		self::Pending->value,
 		self::Starting->value,
+		self::MailFailed->value,
+		self::Sending->value,
 	];
 
 	/**
