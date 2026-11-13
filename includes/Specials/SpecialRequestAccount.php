@@ -6,10 +6,12 @@ use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Exception\ErrorPageError;
 use MediaWiki\Exception\UserBlockedError;
 use MediaWiki\Extension\ConfirmEdit\Hooks as ConfirmEditHooks;
+use MediaWiki\Extension\ConfirmEdit\SimpleCaptcha\SimpleCaptcha;
 use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
@@ -233,7 +235,7 @@ class SpecialRequestAccount extends SpecialRequest {
 
 		if (
 			$this->captchaRequired &&
-			!ConfirmEditHooks::getInstance( ConfirmEdit::TRIGGER )
+			!$this->getCaptcha()
 				->passCaptchaLimitedFromRequest( $this->getRequest(), $user )
 		) {
 			return Status::newFatal( 'requestaccount-error-captcha' );
@@ -349,12 +351,25 @@ class SpecialRequestAccount extends SpecialRequest {
 		return Status::newGood();
 	}
 
+	/**
+	 * @suppress PhanDeprecatedFunction The fallback is needed for MediaWiki 1.46.
+	 * @suppress UnusedSuppression The fallback is deprecated only on MediaWiki 1.47+.
+	 */
+	private function getCaptcha(): SimpleCaptcha {
+		$services = MediaWikiServices::getInstance();
+		if ( $services->hasService( 'ConfirmEditCaptchaFactory' ) ) {
+			return $services->get( 'ConfirmEditCaptchaFactory' )->getGlobalInstance( ConfirmEdit::TRIGGER );
+		}
+
+		return ConfirmEditHooks::getInstance( ConfirmEdit::TRIGGER );
+	}
+
 	private function isCaptchaRequired(): bool {
 		if ( !$this->extensionRegistry->isLoaded( 'ConfirmEdit' ) ) {
 			return false;
 		}
 
-		$captcha = ConfirmEditHooks::getInstance( ConfirmEdit::TRIGGER );
+		$captcha = $this->getCaptcha();
 		return $captcha->triggersCaptcha( ConfirmEdit::TRIGGER ) &&
 			!$captcha->canSkipCaptcha( $this->getUser() );
 	}
@@ -363,7 +378,7 @@ class SpecialRequestAccount extends SpecialRequest {
 		// captchas store their solution in the session
 		$this->getRequest()->getSession()->persist();
 
-		$captcha = ConfirmEditHooks::getInstance( ConfirmEdit::TRIGGER );
+		$captcha = $this->getCaptcha();
 		$captcha->setTrigger( ConfirmEdit::TRIGGER );
 		$captcha->setAction( ConfirmEdit::TRIGGER );
 
