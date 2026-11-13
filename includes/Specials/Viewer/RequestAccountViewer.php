@@ -25,7 +25,6 @@ use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
-use Wikimedia\Codex\Utility\Codex;
 
 class RequestAccountViewer extends RequestViewer {
 
@@ -210,7 +209,6 @@ class RequestAccountViewer extends RequestViewer {
 
 	private function getHandlingDescriptor( bool $canSeeIp ): array {
 		$authority = $this->context->getAuthority();
-		$codex = new Codex();
 
 		// The block details contain the target IP or range, so they follow
 		// the same visibility rule as the IP address itself.
@@ -218,7 +216,7 @@ class RequestAccountViewer extends RequestViewer {
 		$blocks = $this->requestManager->getIpBlocks();
 		if ( $blocks ) {
 			$info .= $canSeeIp ?
-				$codex->message()->setContentText( implode( "\n", $blocks ) )->build()->getHtml() :
+				Html::noticeBox( htmlspecialchars( implode( "\n", $blocks ) ) ) :
 				Html::warningBox(
 					$this->context->msg( 'requestaccount-warning-ip-blocked' )->parse()
 				);
