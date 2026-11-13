@@ -12,9 +12,6 @@ use stdClass;
 class RequestAccountQueuePager extends RequestQueuePager {
 
 	private array $actorNameCache = [];
-	private string $username;
-	private string $email;
-	private bool $canSeeIp;
 
 	public function __construct(
 		IContextSource $context,
@@ -24,13 +21,10 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		string $requester,
 		string $status,
 		string $type,
-		string $username,
-		string $email,
-		bool $canSeeIp
+		private readonly string $username,
+		private readonly string $email,
+		private readonly bool $canSeeIp
 	) {
-		$this->username = $username;
-		$this->email = $email;
-		$this->canSeeIp = $canSeeIp;
 		parent::__construct( $context, $dbService, $linkRenderer, $userFactory, $requester, $status, $type );
 	}
 

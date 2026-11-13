@@ -177,82 +177,58 @@ class RequestAccountManager extends RequestManager {
 	 * @return bool False if the loaded request is no longer in $from
 	 */
 	public function transitionStatus( string $from, string $to ): bool {
-		$dbw = $this->dbService->getDbw();
-
-		$dbw->newUpdateQueryBuilder()
-			->update( self::TABLE )
-			->set( [ 'request_status' => $to ] )
-			->where( [
-				'request_id' => $this->getId(),
-				'request_status' => $from,
-			] )
-			->caller( __METHOD__ )
-			->execute();
-
-		if ( $dbw->affectedRows() === 0 ) {
-			return false;
-		}
-
-		$this->row->request_status = $to;
-		return true;
+		return $this->updateRequest( [ 'request_status' => $to ], $from, __METHOD__ );
 	}
 
 	/** Record the handler and outcome, with a completion date only for closed requests. */
 	public function resolve( string $status, UserIdentity $performer, string $notes ): void {
 		$dbw = $this->dbService->getDbw();
 		$timestamp = in_array( $status, MirahezeRequestsStatus::CLOSED, true ) ? $dbw->timestamp() : null;
-		$performerActorId = $this->actorNormalization->acquireActorId( $performer, $dbw );
-
-		$dbw->newUpdateQueryBuilder()
-			->update( self::TABLE )
-			->set( [
-				'request_status' => $status,
-				'request_completed_timestamp' => $timestamp,
-				'request_completed_actor' => $performerActorId,
-				'request_notes' => $notes,
-			] )
-			->where( [ 'request_id' => $this->getId() ] )
-			->caller( __METHOD__ )
-			->execute();
-
-		$this->row->request_status = $status;
-		$this->row->request_completed_timestamp = $timestamp;
-		$this->row->request_completed_actor = $performerActorId;
-		$this->row->request_notes = $notes;
+		$this->updateRequest( [
+			'request_status' => $status,
+			'request_completed_timestamp' => $timestamp,
+			'request_completed_actor' => $this->actorNormalization->acquireActorId( $performer, $dbw ),
+			'request_notes' => $notes,
+		], null, __METHOD__ );
 	}
 
 	/** Update delivery notes without changing who resolved the request or when. */
 	public function setNotes( string $notes ): void {
-		$this->dbService->getDbw()->newUpdateQueryBuilder()
-			->update( self::TABLE )
-			->set( [ 'request_notes' => $notes ] )
-			->where( [ 'request_id' => $this->getId() ] )
-			->caller( __METHOD__ )
-			->execute();
-
-		$this->row->request_notes = $notes;
+		$this->updateRequest( [ 'request_notes' => $notes ], null, __METHOD__ );
 	}
 
 	/** Preserve the approving handler when delivery is retried. */
 	public function finishApprovalMail( bool $success, string $notes ): void {
-		$dbw = $this->dbService->getDbw();
-		$values = [
+		$this->updateRequest( [
 			'request_status' => $success ? MirahezeRequestsStatus::Complete->value :
 				MirahezeRequestsStatus::MailFailed->value,
-			'request_completed_timestamp' => $success ? $dbw->timestamp() : null,
+			'request_completed_timestamp' => $success ? $this->dbService->getDbw()->timestamp() : null,
 			'request_notes' => $notes,
-		];
+		], MirahezeRequestsStatus::Sending->value, __METHOD__ );
+	}
+
+	/** A failed status claim must not update the loaded row. */
+	private function updateRequest( array $values, ?string $expectedStatus, string $caller ): bool {
+		$dbw = $this->dbService->getDbw();
+		$conditions = [ 'request_id' => $this->getId() ];
+		if ( $expectedStatus !== null ) {
+			$conditions['request_status'] = $expectedStatus;
+		}
+
 		$dbw->newUpdateQueryBuilder()
 			->update( self::TABLE )
 			->set( $values )
-			->where( [ 'request_id' => $this->getId(), 'request_status' => MirahezeRequestsStatus::Sending->value ] )
-			->caller( __METHOD__ )
+			->where( $conditions )
+			->caller( $caller )
 			->execute();
-		if ( $dbw->affectedRows() ) {
-			foreach ( $values as $key => $value ) {
-				$this->row->$key = $value;
-			}
+		if ( $expectedStatus !== null && !$dbw->affectedRows() ) {
+			return false;
 		}
+
+		foreach ( $values as $key => $value ) {
+			$this->row->$key = $value;
+		}
+		return true;
 	}
 
 	public function hasOpenRequestForName( string $name ): bool {

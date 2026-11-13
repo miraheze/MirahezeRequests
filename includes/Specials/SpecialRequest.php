@@ -2,24 +2,16 @@
 
 namespace Miraheze\MirahezeRequests\Specials;
 
-use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\FormSpecialPage;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Status\Status;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 
 abstract class SpecialRequest extends FormSpecialPage {
-	private string $tableName;
-	private int $insertedId = 0;
-
 	public function __construct(
 		readonly string $name,
 		private readonly string $right,
 		protected readonly MirahezeRequestsDatabaseService $dbService
 	) {
-		$pageName = 'Request' . $name;
-		$this->tableName = strtolower( $name ) . '_requests';
-		parent::__construct( $pageName );
+		parent::__construct( 'Request' . $name );
 	}
 
 	/** @inheritDoc */
@@ -50,38 +42,6 @@ abstract class SpecialRequest extends FormSpecialPage {
 		if ( $this->getForm()->show() ) {
 			$this->onSuccess();
 		}
-	}
-
-	/** @inheritDoc */
-	public function onSubmit( array $data ): Status {
-		// HTMLForm already checks the edit token before calling this.
-		$dbw = $this->dbService->getDbw();
-		$timestamp = $dbw->timestamp();
-
-		$dbw->newInsertQueryBuilder()
-			->insertInto( $this->tableName )
-			->ignore()
-			->row( $this->getInsertRow( $data, $timestamp ) )
-			->caller( __METHOD__ )
-			->execute();
-
-		$this->insertedId = $dbw->insertId();
-
-		return Status::newGood();
-	}
-
-	/** @inheritDoc */
-	public function onSuccess(): void {
-		$requestLink = $this->getLinkRenderer()->makeLink(
-			SpecialPage::getTitleFor( 'Request' . $this->name . 'Queue', (string)$this->insertedId ),
-			(string)$this->insertedId
-		);
-
-		$this->getOutput()->addHTML(
-			Html::successBox(
-				$this->msg( 'mirahezerequests-success' )->rawParams( $requestLink )->parse()
-			)
-		);
 	}
 
 	/** @inheritDoc */
