@@ -1,144 +1,261 @@
 [
 	{
-		"name": "renamewiki_requests",
+		"name": "account_requests",
 		"comment": "",
 		"columns": [
 			{
 				"name": "request_id",
 				"comment": "Unique auto-increment ID",
 				"type": "bigint",
-				"options": { "autoincrement": true, "notnull": true, "unsigned": true }
+				"options": {
+					"autoincrement": true,
+					"notnull": true,
+					"unsigned": true
+				}
 			},
 			{
 				"name": "request_actor",
-				"comment": "",
+				"comment": "Account the request was submitted from; null if logged out, as the actor would keep the IP",
 				"type": "bigint",
-				"options": { "notnull": true, "unsigned": true }
+				"options": {
+					"notnull": false,
+					"unsigned": true
+				}
 			},
 			{
 				"name": "request_timestamp",
 				"comment": "",
 				"type": "mwtimestamp",
-				"options": { "notnull": true }
+				"options": {
+					"notnull": true
+				}
 			},
 			{
-				"name": "request_source",
+				"name": "request_email",
 				"comment": "",
 				"type": "string",
-				"options": { "notnull": true }
+				"options": {
+					"notnull": true,
+					"length": 255
+				}
 			},
 			{
-				"name": "request_target",
+				"name": "request_username",
 				"comment": "",
 				"type": "string",
-				"options": { "notnull": true, "length": 64 }
+				"options": {
+					"notnull": true,
+					"length": 255
+				}
+			},
+			{
+				"name": "request_name_warnings",
+				"comment": "JSON list of the username checks that failed on submission, as HTML",
+				"type": "blob",
+				"options": {
+					"notnull": false,
+					"length": 65530
+				}
 			},
 			{
 				"name": "request_reason",
 				"comment": "",
+				"type": "mwenum",
+				"options": {
+					"notnull": true,
+					"PlatformOptions": {
+						"enum_values": [
+							"globalblock",
+							"abusefilter",
+							"captcha",
+							"other"
+						]
+					}
+				}
+			},
+			{
+				"name": "request_globalblock_reason",
+				"comment": "Reason of the global block, if that was the reason",
+				"type": "mwenum",
+				"options": {
+					"notnull": false,
+					"PlatformOptions": {
+						"enum_values": [
+							"crosswiki-abuse",
+							"crosswiki-spam",
+							"crosswiki-vandalism",
+							"longterm-abuse",
+							"proxy",
+							"trust-safety",
+							"other"
+						]
+					}
+				}
+			},
+			{
+				"name": "request_explanation",
+				"comment": "",
 				"type": "blob",
-				"options": { "notnull": true, "length": 65530 }
+				"options": {
+					"notnull": true,
+					"length": 16777215
+				}
 			},
 			{
 				"name": "request_status",
 				"comment": "",
 				"type": "mwenum",
-				"options": { "notnull": true,
-					"CustomSchemaOptions": {
-						"enum_values": [ "complete", "declined", "failed", "inprogress", "pending", "starting" ]
+				"options": {
+					"notnull": true,
+					"PlatformOptions": {
+						"enum_values": [
+							"complete",
+							"declined",
+							"pending",
+							"starting",
+							"unconfirmed",
+							"mailfailed",
+							"sending"
+						]
 					}
 				}
 			},
 			{
-				"name": "request_locked",
+				"name": "request_ccemail",
 				"comment": "",
 				"type": "mwtinyint",
-				"options": { "notnull": true, "unsigned": true, "default": 0 }
+				"options": {
+					"notnull": true,
+					"unsigned": true,
+					"default": 0
+				}
 			},
 			{
-				"name": "request_private",
-				"comment": "",
-				"type": "mwtinyint",
-				"options": { "notnull": true, "unsigned": true, "default": 0 }
-			}
-		],
-		"indexes": [
-			{
-				"name": "request_actor_timestamp",
-				"comment": "",
-				"columns": [ "request_actor", "request_timestamp" ],
-				"unique": false
+				"name": "request_comments",
+				"comment": "Optional additional comments from the requester",
+				"type": "blob",
+				"options": {
+					"notnull": true,
+					"length": 16777215,
+					"default": ""
+				}
 			},
 			{
-				"name": "request_timestamp",
-				"comment": "",
-				"columns": [ "request_timestamp" ],
-				"unique": false
+				"name": "request_ip",
+				"comment": "The IP address the request was submitted from",
+				"type": "string",
+				"options": {
+					"notnull": true,
+					"length": 45
+				}
 			},
 			{
-				"name": "request_target",
-				"comment": "",
-				"columns": [ "request_target" ],
-				"unique": false
+				"name": "request_language",
+				"comment": "Language the requester used, for emails to them",
+				"type": "string",
+				"options": {
+					"notnull": true,
+					"length": 35
+				}
 			},
 			{
-				"name": "request_status",
-				"comment": "",
-				"columns": [ "request_status" ],
-				"unique": false
-			}
-		],
-		"pk": [ "request_id" ]
-	},
-	{
-		"name": "renamewiki_request_comments",
-		"comment": "",
-		"columns": [
-			{
-				"name": "request_comment_id",
-				"comment": "Unique auto-increment ID",
-				"type": "bigint",
-				"options": { "autoincrement": true, "notnull": true, "unsigned": true }
+				"name": "request_token",
+				"comment": "Hash of the email confirmation token",
+				"type": "string",
+				"options": {
+					"notnull": false,
+					"length": 64
+				}
 			},
 			{
-				"name": "request_id",
-				"comment": "",
-				"type": "bigint",
-				"options": { "notnull": true, "unsigned": true }
-			},
-			{
-				"name": "request_comment_actor",
-				"comment": "",
-				"type": "bigint",
-				"options": { "notnull": true, "unsigned": true }
-			},
-			{
-				"name": "request_comment_timestamp",
+				"name": "request_confirmed_timestamp",
 				"comment": "",
 				"type": "mwtimestamp",
-				"options": { "notnull": true }
+				"options": {
+					"notnull": false
+				}
 			},
 			{
-				"name": "request_comment_text",
-				"comment": "",
+				"name": "request_completed_timestamp",
+				"comment": "When the request was resolved (accepted/declined/failed)",
+				"type": "mwtimestamp",
+				"options": {
+					"notnull": false
+				}
+			},
+			{
+				"name": "request_completed_actor",
+				"comment": "Who resolved the request",
+				"type": "bigint",
+				"options": {
+					"notnull": false,
+					"unsigned": true
+				}
+			},
+			{
+				"name": "request_notes",
+				"comment": "Notes on how the request was resolved",
 				"type": "blob",
-				"options": { "notnull": true, "length": 65530 }
+				"options": {
+					"notnull": true,
+					"length": 65530,
+					"default": ""
+				}
 			}
 		],
 		"indexes": [
 			{
-				"name": "request_id",
+				"name": "account_request_actor_timestamp",
 				"comment": "",
-				"columns": [ "request_id" ],
+				"columns": [
+					"request_actor",
+					"request_timestamp"
+				],
 				"unique": false
 			},
 			{
-				"name": "request_comment_timestamp",
+				"name": "account_request_timestamp",
 				"comment": "",
-				"columns": [ "request_comment_timestamp" ],
+				"columns": [
+					"request_timestamp"
+				],
+				"unique": false
+			},
+			{
+				"name": "account_request_email",
+				"comment": "",
+				"columns": [
+					"request_email"
+				],
+				"unique": false
+			},
+			{
+				"name": "account_request_username",
+				"comment": "",
+				"columns": [
+					"request_username"
+				],
+				"unique": false
+			},
+			{
+				"name": "account_request_status",
+				"comment": "",
+				"columns": [
+					"request_status"
+				],
+				"unique": false
+			},
+			{
+				"name": "account_request_token",
+				"comment": "",
+				"columns": [
+					"request_token"
+				],
 				"unique": false
 			}
 		],
-		"pk": [ "request_comment_id" ]
+		"pk": [
+			"request_id"
+		]
 	}
 ]

@@ -2,20 +2,33 @@
 
 namespace Miraheze\MirahezeRequests\Specials\Queue;
 
+use MediaWiki\Auth\AuthManager;
+use MediaWiki\Deferred\DeferredUpdates;
+use MediaWiki\Language\FormatterFactory;
+use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\User\UserFactory;
+use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\AccountCreator;
+use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
+use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
 use Miraheze\MirahezeRequests\Specials\Pager\RequestAccountQueuePager;
 use Miraheze\MirahezeRequests\Specials\Viewer\RequestAccountViewer;
 use Miraheze\MirahezeRequests\Specials\Viewer\RequestViewer;
 
 class SpecialRequestAccountQueue extends RequestQueue {
-	private RequestAccountManager $requestManager;
 
 	public function __construct(
 		MirahezeRequestsDatabaseService $dbService,
-		RequestAccountManager $requestManager,
-		UserFactory $userFactory
+		UserFactory $userFactory,
+		private readonly AccountRequestRouter $accountRequestRouter,
+		private readonly AuthManager $authManager,
+		private readonly ExtensionRegistry $extensionRegistry,
+		private readonly FormatterFactory $formatterFactory,
+		private readonly AccountCreator $accountCreator,
+		private readonly AccountRequestMailer $requestMailer,
+		private readonly RequestAccountManager $requestManager,
 	) {
 		parent::__construct(
 			'RequestAccountQueue',
@@ -23,28 +36,73 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$dbService,
 			$userFactory
 		);
-		$this->requestManager = $requestManager;
 	}
 
+	/** @inheritDoc */
 	protected function makeViewer(): RequestViewer {
 		return new RequestAccountViewer(
-			$this->getConfig(),
 			$this->getContext(),
-			$this->requestManager
+			$this->getLinkRenderer(),
+			$this->authManager,
+			$this->extensionRegistry,
+			$this->formatterFactory->getStatusFormatter( $this->getContext() ),
+			$this->accountCreator,
+			$this->requestMailer,
+			$this->requestManager,
+			$this->dbService,
+			$this->accountRequestRouter,
 		);
 	}
 
+	/** @inheritDoc */
+	protected function lookupRequest( int $requestId ): void {
+		if ( !$this->accountRequestRouter->ensureAuthenticationDomain( $this, (string)$requestId ) ) {
+			return;
+		}
+
+		parent::lookupRequest( $requestId );
+	}
+
+	/** @inheritDoc */
+	protected function showFilterAndPager(): void {
+		if ( !$this->accountRequestRouter->ensureQueueDomain( $this ) ) {
+			return;
+		}
+
+		// handlers view the queue regularly, so expired data gets purged
+		DeferredUpdates::addCallableUpdate( function () {
+			$this->requestManager->purgeExpiredData();
+		} );
+
+		parent::showFilterAndPager();
+	}
+
+	/** @inheritDoc */
 	protected function getFiltersFromRequest(): array {
 		$req = $this->getRequest();
+		$status = $req->getText( 'status' );
+		$queueStatuses = array_map(
+			static fn ( MirahezeRequestsStatus $case ) => $case->value,
+			MirahezeRequestsStatus::queueCases()
+		);
+
 		return [
 			'requester' => $req->getText( 'requester' ),
-			'status' => $req->getText( 'status' ),
+			'status' => in_array( $status, $queueStatuses, true ) ? $status : '',
 			'username' => $req->getText( 'username' ),
 			'email' => $req->getText( 'email' ),
 		];
 	}
 
+	/** @inheritDoc */
 	protected function buildFilterFormDescriptor( array $filters ): array {
+		// Message-based so option labels are actually translatable,
+		// rather than a hardcoded English string per status.
+		$statusOptions = [ 'mirahezerequests-status-all' => '*' ];
+		foreach ( MirahezeRequestsStatus::queueCases() as $case ) {
+			$statusOptions[$case->getMessageKey()] = $case->value;
+		}
+
 		return [
 			'info' => [
 				'type' => 'info',
@@ -53,13 +111,13 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			'username' => [
 				'type' => 'text',
 				'name' => 'username',
-				'label-message' => 'requestaccount-username',
+				'label-message' => 'requestaccount-username-short',
 				'default' => $filters['username'],
 			],
 			'email' => [
 				'type' => 'text',
 				'name' => 'email',
-				'label-message' => 'requestaccount-email',
+				'label-message' => 'requestaccount-email-short',
 				'default' => $filters['email'],
 			],
 			'requester' => [
@@ -72,14 +130,15 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			'status' => [
 				'type' => 'select',
 				'name' => 'status',
-				'label-message' => 'status',
-				'options' => self::HTMLFORMOPTIONS,
-				'default' => $filters['status'] ?: self::STATUS_PENDING,
+				'label-message' => 'mirahezerequests-label-status',
+				'options-messages' => $statusOptions,
+				'default' => $filters['status'] ?: '*',
 			],
 		];
 	}
 
-	protected function buildPager( array $filters ): RequestAccountQueuePager {
+	/** @inheritDoc */
+	protected function buildPager( array $filters, string $type ): RequestAccountQueuePager {
 		return new RequestAccountQueuePager(
 			$this->getContext(),
 			$this->dbService,
@@ -87,8 +146,10 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			$this->userFactory,
 			$filters['requester'],
 			$filters['status'],
+			$type,
 			$filters['username'],
-			$filters['email']
+			$filters['email'],
+			$this->requestManager->canSeeIp( $this->getUser() )
 		);
 	}
 }

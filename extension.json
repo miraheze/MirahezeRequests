@@ -1,13 +1,17 @@
 {
 	"name": "MirahezeRequests",
-	"author": "Pskyechology",
+	"author": [
+		"Pskyechology",
+		"Reception123",
+		"Waki285"
+	],
 	"url": "https://github.com/miraheze/MirahezeRequests",
 	"descriptionmsg": "mirahezerequests-desc",
 	"namemsg": "mirahezerequests-extensionname",
 	"license-name": "GPL-3.0-or-later",
 	"type": "specialpage",
 	"requires": {
-		"MediaWiki": ">= 1.45.0",
+		"MediaWiki": ">= 1.46.0",
 		"platform": {
 			"php": ">= 8.4"
 		}
@@ -21,100 +25,45 @@
 		"MirahezeRequestsAliases": "MirahezeRequestsAliases.php"
 	},
 	"AutoloadNamespaces": {
-		"Miraheze\\MirahezeRequests\\": "includes/"
+		"Miraheze\\MirahezeRequests\\": "includes/",
+		"Miraheze\\MirahezeRequests\\Maintenance\\": "maintenance/"
 	},
 	"TestAutoloadNamespaces": {
 		"Miraheze\\MirahezeRequests\\Tests\\": "tests/phpunit/"
 	},
-	"JobClasses": {
-		"MirahezeRequestsCreateAccountJob": {
-			"class": "Miraheze\\MirahezeRequests\\Jobs\\CreateAccountJob",
-			"services": [
-				"UserFactory",
-				"AuthManager"
-			],
-			"needsPage": false
-		},
-		"RenameWikiJob": {
-			"class": "Miraheze\\MirahezeRequests\\Jobs\\RenameWikiJob",
-			"services": [
-				"ConnectionProvider",
-				"MirahezeRequestsConfig",
-				"RenameWikiHookRunner",
-				"RenameWikiRequestManager",
-				"JobQueueGroupFactory",
-				"WikiImporterFactory"
-			],
-			"needsPage": false
-		},
-		"RenameWikiNotifyJob": {
-			"class": "Miraheze\\MirahezeRequests\\Jobs\\RenameWikiNotifyJob",
-			"services": [
-				"ExtensionRegistry",
-				"MirahezeRequestsConfig",
-				"RenameWikiRequestManager",
-				"UserFactory"
-			],
-			"needsPage": false
-		}
-	},
 	"GroupPermissions": {
-		"user": {
-			"request-renamewiki": true
+		"*": {
+			"request-account": true
 		}
 	},
 	"AvailableRights": [
-		"handle-renamewiki-request-interwiki",
-		"handle-renamewiki-requests",
-		"request-renamewiki",
-		"view-private-renamewiki-requests"
+		"handle-requestaccount",
+		"request-account"
 	],
 	"LogActionsHandlers": {
-		"renamewiki/*": "MediaWiki\\Logging\\LogFormatter",
-		"renamewikiprivate/*": "MediaWiki\\Logging\\LogFormatter"
+		"requestaccount/*": "MediaWiki\\Logging\\LogFormatter"
 	},
 	"LogHeaders": {
-		"renamewiki": "renamewiki-log-header",
-		"renamewikiprivate": "renamewikiprivate-log-header"
+		"requestaccount": "requestaccount-log-header"
 	},
 	"LogNames": {
-		"renamewiki": "renamewiki-log-name",
-		"renamewikiprivate": "renamewikiprivate-log-name"
+		"requestaccount": "requestaccount-log-name"
 	},
 	"LogTypes": [
-		"renamewiki",
-		"renamewikiprivate"
+		"requestaccount"
 	],
 	"LogRestrictions": {
-		"renamewikiprivate": "view-private-renamewiki-requests"
+		"requestaccount": "handle-requestaccount"
 	},
-	"ActionFilteredLogs": {
-		"renamewiki": {
-			"interwiki": [
-				"interwiki"
+	"RateLimits": {
+		"requestaccount": {
+			"ip-all": [
+				3,
+				3600
 			],
-			"request": [
-				"request"
-			],
-			"started": [
-				"started"
-			],
-			"statusupdate": [
-				"statusupdate"
-			]
-		},
-		"renamewikiprivate": {
-			"interwiki": [
-				"interwiki"
-			],
-			"request": [
-				"request"
-			],
-			"started": [
-				"started"
-			],
-			"statusupdate": [
-				"statusupdate"
+			"subnet-all": [
+				10,
+				86400
 			]
 		}
 	},
@@ -122,33 +71,26 @@
 		"RequestAccount": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestAccount",
 			"services": [
-				"MirahezeRequestsDatabaseService"
+				"MirahezeRequestsDatabaseService",
+				"MirahezeRequestsAccountRequestRouter",
+				"ExtensionRegistry",
+				"MirahezeRequestsAccountRequestMailer",
+				"RequestAccountManager",
+				"MirahezeRequestsUsernameValidator"
 			]
 		},
 		"RequestAccountQueue": {
 			"class": "Miraheze\\MirahezeRequests\\Specials\\Queue\\SpecialRequestAccountQueue",
 			"services": [
 				"MirahezeRequestsDatabaseService",
-				"RequestAccountManager",
-				"UserFactory"
-			]
-		},
-		"RequestDPE": {
-			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestDPE",
-			"services": [
-				"MirahezeRequestsDatabaseService"
-			]
-		},
-		"RequestRenameWiki": {
-			"class": "Miraheze\\MirahezeRequests\\Specials\\SpecialRequestRenameWiki",
-			"services": [
-				"ConnectionProvider",
-				"MirahezeRequestsValidator",
+				"UserFactory",
+				"MirahezeRequestsAccountRequestRouter",
+				"AuthManager",
 				"ExtensionRegistry",
-				"UserFactory"
-			],
-			"optional_services": [
-				"ManageWikiModuleFactory"
+				"FormatterFactory",
+				"MirahezeRequestsAccountCreator",
+				"MirahezeRequestsAccountRequestMailer",
+				"RequestAccountManager"
 			]
 		}
 	},
@@ -174,51 +116,62 @@
 		"remoteExtPath": "MirahezeRequests/resources"
 	},
 	"config": {
-		"MirahezeRequestsDatabaseSuffix": {
-			"value": "wiki",
-			"description": "String. Database suffix."
+		"MirahezeRequestsAccountConfirmationExpiry": {
+			"value": 86400,
+			"description": "Seconds a requester has to confirm their email address. Unconfirmed requests are deleted afterwards."
 		},
-		"RenameWikiEnableAutomatedJob": {
+		"MirahezeRequestsAccountRequestsOpen": {
 			"value": true,
-			"description": "Whether to enable a job where a reviewer just has to 'approve' an renamewiki and job handles everything else. You can use the RenameWikiJobGetFile hook to manipulate how the job gets the XML file."
+			"description": "Whether Special:RequestAccount accepts new requests. Requests submitted before can still be confirmed and handled."
 		},
-		"RenameWikiHelpUrl": {
-			"value": "",
-			"description": "Full URL. If set, adds a help URL to Special:RequestRenameWiki."
-		},
-		"RenameWikiInterwikiMap": {
+		"MirahezeRequestsIPVisibilityGroups": {
 			"value": [],
-			"description": "A mapping of 'domain => interwiki prefix' for multi-level interwiki prefix generation for --username-prefix."
+			"description": "Array of user group names allowed to see requesters' IP addresses on requests that capture one (e.g. account requests). If empty (the default), nobody can see IPs, regardless of the handle-* right - this must be explicitly configured. If non-empty, only handlers who are also in one of these groups can see IPs."
 		},
-		"RenameWikiScriptCommand": {
-			"value": "mwscript MirahezeMagic:RenameDatabase loginwiki --rename --old={oldwiki} --new={newwiki} --user=Restricted_Workflows",
-			"description": "Generated maintenance script command to use. If $wgRenameWikiEnableAutomatedJob is enabled, this is not displayed unless the status is 'failed'."
-		},
-		"RenameWikiUsersNotifiedOnAllRequests": {
-			"value": [],
-			"description": "Array of usernames to send email notifications to for all requests. Users listed here must have a verified email address on their account. This doesn't do anything if the Echo extension is not installed."
-		},
-		"RenameWikiUsersNotifiedOnFailedRenameWikis": {
-			"value": [],
-			"description": "Array of usernames to send email notifications to for failed renamewikis. Users listed here must have a verified email address on their account. This doesn't do anything if the Echo extension is not installed or if $wgRenameWikiEnableAutomatedJob is not enabled."
+		"MirahezeRequestsIPRetentionDays": {
+			"value": 90,
+			"description": "Days to keep a request's IP address, counted from when the request was handled, or from submission while it is still open. Purging runs when requests are submitted, when handlers view the queue, and through the PurgeExpiredAccountRequests maintenance script. Set to 0 to keep IP addresses."
 		}
 	},
 	"ConfigRegistry": {
 		"MirahezeRequests": "MediaWiki\\Config\\GlobalVarConfig::newInstance"
 	},
-	"DefaultUserOptions": {
-		"echo-subscriptions-email-renamewiki-renamewiki-failed": true,
-		"echo-subscriptions-email-renamewiki-new-request": true,
-		"echo-subscriptions-email-renamewiki-request-comment": true,
-		"echo-subscriptions-email-renamewiki-request-status-update": true,
-		"echo-subscriptions-web-renamewiki-request-comment": true,
-		"echo-subscriptions-web-renamewiki-request-status-update": true
+	"Hooks": {
+		"ConfirmEditCanUserSkipCaptcha": {
+			"handler": "ConfirmEdit"
+		},
+		"ConfirmEditTriggersCaptcha": {
+			"handler": "ConfirmEdit"
+		},
+		"ExemptFromAccountCreationThrottle": {
+			"handler": "Main"
+		},
+		"GetAllBlockActions": {
+			"handler": "Main"
+		},
+		"LoadExtensionSchemaUpdates": {
+			"handler": "Installer"
+		},
+		"UserGetReservedNames": {
+			"handler": "Main"
+		}
 	},
-	"RateLimits": {
-		"request-renamewiki": {
-			"user": [
-				5,
-				60
+	"HookHandlers": {
+		"ConfirmEdit": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\ConfirmEdit",
+			"services": [
+				"MainConfig",
+				"MirahezeRequestsAccountCreator"
+			]
+		},
+		"Installer": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Installer"
+		},
+		"Main": {
+			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
+			"services": [
+				"MirahezeRequestsDatabaseService",
+				"MirahezeRequestsAccountCreator"
 			]
 		}
 	},

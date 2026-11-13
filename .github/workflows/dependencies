@@ -1,6 +1,12 @@
 CentralAuth:
   branch: auto
   repo: auto
+ConfirmEdit:
+  branch: auto
+  repo: auto
 Echo:
+  branch: auto
+  repo: auto
+TitleBlacklist:
   branch: auto
   repo: auto

@@ -3,36 +3,22 @@
 namespace Miraheze\MirahezeRequests\Specials\Viewer;
 
 use MediaWiki\HTMLForm\HTMLForm;
-use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use MediaWiki\Status\Status;
 
-abstract class RequestViewer implements MirahezeRequestsStatus {
-	/*abstract protected function getFormDescriptor(): array;
-	abstract protected function getFormId(): string;
-	abstract protected function getRequestManager();
-	abstract protected function buildForm( array $descriptor );
+abstract class RequestViewer {
 
-	public function getForm( int $requestId ) {
-		$this->getRequestManager()->getById( $requestId );
-
-		$descriptor = $this->getFormDescriptor();
-		if ( !$descriptor ) {
-			return null;
-		}
-
-		$form = $this->buildForm( $descriptor );
-		$form->setId( $this->getFormId() );
-		$form->suppressDefaultSubmit();
-		$form->setSubmitCallback(
-			function ( array $formData, HTMLForm $form ) {
-				return $this->submitForm( $formData, $form );
-			}
-		);
-
-		return $form;
-	}*/
+	/**
+	 * @param int $requestId
+	 * @return HTMLForm
+	 */
 	abstract public function getForm( int $requestId );
 
 	abstract protected function getFormDescriptor(): array;
 
+	/**
+	 * @param array $formData
+	 * @param HTMLForm $form
+	 * @return bool|Status
+	 */
 	abstract protected function submitForm( array $formData, HTMLForm $form );
 }

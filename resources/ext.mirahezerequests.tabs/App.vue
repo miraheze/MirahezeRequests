@@ -6,10 +6,13 @@
 			:name="tab.name"
 			:label="tab.label"
 		>
+			<!-- form HTML built by the server; content can't set data-mw-tabs (T15786) -->
+			<!-- eslint-disable vue/no-v-html -->
 			<div
 				class="mirahezerequests-tab-content"
 				v-html="tab.html"
 			></div>
+			<!-- eslint-enable vue/no-v-html -->
 		</cdx-tab>
 	</cdx-tabs>
 </template>
@@ -30,8 +33,8 @@ module.exports = exports = defineComponent( {
 	},
 
 	data() {
-		const root = document.getElementById( 'mirahezerequests-tabs-root' );
-		const raw = root ? root.getAttribute( 'data-tabs' ) : '[]';
+		const root = document.querySelector( '[data-mw-tabs]' );
+		const raw = root ? root.getAttribute( 'data-mw-tabs' ) : '[]';
 		const tabs = raw ? JSON.parse( raw ) : [];
 
 		return {
