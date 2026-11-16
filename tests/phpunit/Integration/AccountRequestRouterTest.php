@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
 use MediaWiki\Config\SiteConfiguration;
@@ -75,7 +77,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 			$url
 		);
 		parse_str( parse_url( $url, PHP_URL_QUERY ), $query );
-		$this->assertSame( [ 'usesul3' => '1', 'uselang' => 'ja' ], $query );
+		$this->assertSame( [ 'uselang' => 'ja' ], $query );
 	}
 
 	public static function provideAuthenticationPage(): array {
@@ -93,7 +95,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->expectException( ErrorPageError::class );
 		$this->executeSpecialPage(
 			$subpage,
-			new FauxRequest( [ 'usesul3' => '0', 'wpsubmit-accept' => '1' ], true ),
+			new FauxRequest( [ 'wpsubmit-accept' => '1' ], true ),
 			'qqx',
 			$this->getTestSysop()->getAuthority()
 		);
@@ -104,14 +106,13 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		[ $html, $response ] = $this->executeSpecialPage();
 		$this->assertNull( $response->getHeader( 'Location' ) );
 		$this->assertStringContainsString( '(requestaccount-username)', $html );
-		$this->assertSelectorMatchesOneElement( $html, 'input[name="usesul3"][value="1"]' );
 	}
 
 	public function testSharedDomainNormalizesLegacySul2LinkWithoutDuplicatingWikiPrefix(): void {
 		$this->configureDomain( true );
 		[ , $response ] = $this->executeSpecialPage( '', new FauxRequest( [ 'usesul3' => '0' ] ) );
 		$this->assertSame(
-			'https://auth.example.org/metawiki/wiki/Special:RequestAccount?usesul3=1',
+			'https://auth.example.org/metawiki/wiki/Special:RequestAccount',
 			$response->getHeader( 'Location' )
 		);
 	}
@@ -184,7 +185,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$name = 'SUL3 approved user';
 		$manager = $this->getServiceContainer()->get( 'RequestAccountManager' );
 		$id = $this->newConfirmedRequest( $manager, $name );
-		$request = new FauxRequest( [ 'usesul3' => '1', 'wpsubmit-accept' => '1' ], true );
+		$request = new FauxRequest( [ 'wpsubmit-accept' => '1' ], true );
 		$this->setRequest( $request );
 		$handler = $this->getTestSysop()->getUser();
 		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
@@ -215,7 +216,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$name = 'SUL3 invalid token user';
 		$id = $this->newConfirmedRequest( $manager, $name );
 		$request = new FauxRequest( [
-			'usesul3' => '1', 'wpsubmit-accept' => '1', 'wpEditToken' => 'invalid',
+			'wpsubmit-accept' => '1', 'wpEditToken' => 'invalid',
 		], true );
 		$this->setRequest( $request );
 		$this->executeSpecialPage( (string)$id, $request, 'qqx', $this->getTestSysop()->getAuthority() );

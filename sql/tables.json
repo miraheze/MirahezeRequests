@@ -60,36 +60,19 @@
 			{
 				"name": "request_reason",
 				"comment": "",
-				"type": "mwenum",
+				"type": "string",
 				"options": {
 					"notnull": true,
-					"PlatformOptions": {
-						"enum_values": [
-							"globalblock",
-							"abusefilter",
-							"captcha",
-							"other"
-						]
-					}
+					"length": 255
 				}
 			},
 			{
 				"name": "request_globalblock_reason",
 				"comment": "Reason of the global block, if that was the reason",
-				"type": "mwenum",
+				"type": "string",
 				"options": {
 					"notnull": false,
-					"PlatformOptions": {
-						"enum_values": [
-							"crosswiki-abuse",
-							"crosswiki-spam",
-							"crosswiki-vandalism",
-							"longterm-abuse",
-							"proxy",
-							"trust-safety",
-							"other"
-						]
-					}
+					"length": 255
 				}
 			},
 			{
@@ -104,20 +87,10 @@
 			{
 				"name": "request_status",
 				"comment": "",
-				"type": "mwenum",
+				"type": "string",
 				"options": {
 					"notnull": true,
-					"PlatformOptions": {
-						"enum_values": [
-							"complete",
-							"declined",
-							"pending",
-							"starting",
-							"unconfirmed",
-							"mailfailed",
-							"sending"
-						]
-					}
+					"length": 255
 				}
 			},
 			{

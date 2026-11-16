@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Specials\Viewer;
 
 use MediaWiki\Auth\AuthManager;
@@ -28,7 +30,7 @@ use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
 
 class RequestAccountViewer extends RequestViewer {
 
-	private const SAME_EMAIL_LIMIT = 10;
+	private const int SAME_EMAIL_LIMIT = 10;
 
 	public function __construct(
 		private readonly IContextSource $context,
@@ -300,7 +302,7 @@ class RequestAccountViewer extends RequestViewer {
 		];
 	}
 
-	private function isValidDeclineReason( ?string $reason, array $alldata ): Message|bool {
+	private function isValidDeclineReason( ?string $reason, array $alldata ): Message|true {
 		if ( isset( $alldata['submit-decline'] ) && ( !$reason || ctype_space( $reason ) ) ) {
 			return $this->context->msg( 'htmlform-required' );
 		}
@@ -357,9 +359,7 @@ class RequestAccountViewer extends RequestViewer {
 		foreach ( array_slice( $others, 0, self::SAME_EMAIL_LIMIT ) as $other ) {
 			$items[] = $this->linkRenderer->makeKnownLink(
 				SpecialPage::getTitleFor( 'RequestAccountQueue', (string)$other['id'] ),
-				"#{$other['id']}",
-				[],
-				AccountRequestRouter::AUTH_QUERY
+				"#{$other['id']}"
 			) . ' ' . $this->context->msg( 'parentheses' )
 				->params( $this->context->msg( "mirahezerequests-status-{$other['status']}" )->text() )
 				->escaped();
@@ -443,7 +443,6 @@ class RequestAccountViewer extends RequestViewer {
 		$htmlForm = new CodexHTMLFormTabs( $formDescriptor, $this->context, 'requestaccount-section' );
 
 		$htmlForm->setId( 'mirahezerequests-requestaccount-viewer' );
-		$htmlForm->addHiddenFields( AccountRequestRouter::AUTH_QUERY );
 		$htmlForm->suppressDefaultSubmit();
 		$htmlForm->setSubmitCallback( $this->submitForm( ... ) );
 
@@ -452,7 +451,8 @@ class RequestAccountViewer extends RequestViewer {
 
 	/**
 	 * $form is required to match HTMLForm's submit-callback signature.
-	 * @suppress PhanUnusedProtectedMethodParameter
+	 * @param array $formData
+	 * @param HTMLForm $form @phan-unused-param
 	 */
 	protected function submitForm(
 		array $formData,

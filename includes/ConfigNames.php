@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 // phpcs:disable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
 namespace Miraheze\MirahezeRequests;
 
@@ -9,11 +11,11 @@ namespace Miraheze\MirahezeRequests;
  */
 class ConfigNames {
 
-	public const AccountConfirmationExpiry = 'MirahezeRequestsAccountConfirmationExpiry';
+	public const string AccountConfirmationExpiry = 'MirahezeRequestsAccountConfirmationExpiry';
 
-	public const AccountRequestsOpen = 'MirahezeRequestsAccountRequestsOpen';
+	public const string AccountRequestsOpen = 'MirahezeRequestsAccountRequestsOpen';
 
-	public const IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
+	public const string IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
 
-	public const IPRetentionDays = 'MirahezeRequestsIPRetentionDays';
+	public const string IPRetentionDays = 'MirahezeRequestsIPRetentionDays';
 }

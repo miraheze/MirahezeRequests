@@ -9,21 +9,10 @@ CREATE TABLE /*_*/account_requests (
   request_email VARCHAR(255) NOT NULL,
   request_username VARCHAR(255) NOT NULL,
   request_name_warnings BLOB DEFAULT NULL,
-  request_reason ENUM(
-    'globalblock', 'abusefilter', 'captcha',
-    'other'
-  ) NOT NULL,
-  request_globalblock_reason ENUM(
-    'crosswiki-abuse', 'crosswiki-spam',
-    'crosswiki-vandalism', 'longterm-abuse',
-    'proxy', 'trust-safety', 'other'
-  ) DEFAULT NULL,
+  request_reason VARCHAR(255) NOT NULL,
+  request_globalblock_reason VARCHAR(255) DEFAULT NULL,
   request_explanation MEDIUMBLOB NOT NULL,
-  request_status ENUM(
-    'complete', 'declined', 'pending',
-    'starting', 'unconfirmed', 'mailfailed',
-    'sending'
-  ) NOT NULL,
+  request_status VARCHAR(255) NOT NULL,
   request_ccemail TINYINT UNSIGNED DEFAULT 0 NOT NULL,
   request_comments MEDIUMBLOB NOT NULL,
   request_ip VARCHAR(45) NOT NULL,

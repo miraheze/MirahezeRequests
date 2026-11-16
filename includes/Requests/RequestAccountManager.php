@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Requests;
 
 use MediaWiki\Block\BlockManager;
@@ -22,7 +24,7 @@ use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 class RequestAccountManager extends RequestManager {
 
-	private const TABLE = 'account_requests';
+	private const string TABLE = 'account_requests';
 
 	public function __construct(
 		private readonly MirahezeRequestsDatabaseService $dbService,
@@ -427,7 +429,7 @@ class RequestAccountManager extends RequestManager {
 			return null;
 		}
 
-		return $this->userFactory->newFromActorId( $this->row->request_completed_actor );
+		return $this->userFactory->newFromActorId( (int)$this->row->request_completed_actor );
 	}
 
 	public function getNotes(): string {

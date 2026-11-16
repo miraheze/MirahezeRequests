@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
 use MediaWiki\Exception\PermissionsError;
@@ -452,7 +454,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringNotContainsString( '<script>test</script>', $html );
 
 		[ $html ] = $this->executeSpecialPage(
-			(string)$id, new FauxRequest( [ 'usesul3' => '1', 'wpsubmit-resend' => 1 ], true ), 'qqx', $requester
+			(string)$id, new FauxRequest( [ 'wpsubmit-resend' => 1 ], true ), 'qqx', $requester
 		);
 		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
 		$this->assertCount( 1, $passwords );

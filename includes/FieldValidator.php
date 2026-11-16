@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests;
 
 use MediaWiki\Language\MessageLocalizer;
@@ -10,12 +12,12 @@ use MediaWiki\Parser\Sanitizer;
 class FieldValidator {
 
 	/** Characters allowed in free text fields such as the explanation or a decline reason. */
-	public const MAX_TEXT_LENGTH = 2000;
+	public const int MAX_TEXT_LENGTH = 2000;
 
 	/** Bytes of the email address columns */
-	private const MAX_EMAIL_LENGTH = 255;
+	private const int MAX_EMAIL_LENGTH = 255;
 
-	public static function validateEmail( ?string $email, MessageLocalizer $messageLocalizer ): bool|Message {
+	public static function validateEmail( ?string $email, MessageLocalizer $messageLocalizer ): Message|true {
 		$email = trim( $email ?? '' );
 		if ( $email === '' ) {
 			// handled by 'required'
@@ -33,7 +35,7 @@ class FieldValidator {
 		?string $text,
 		int $maxLength,
 		MessageLocalizer $messageLocalizer
-	): bool|Message {
+	): Message|true {
 		if ( mb_strlen( $text ?? '' ) > $maxLength ) {
 			return $messageLocalizer->msg( 'mirahezerequests-error-too-long' )->numParams( $maxLength );
 		}

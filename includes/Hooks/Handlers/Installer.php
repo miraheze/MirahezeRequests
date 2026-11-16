@@ -1,20 +1,14 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
-use MediaWiki\Installer\DatabaseUpdater;
 use MediaWiki\Installer\Hook\LoadExtensionSchemaUpdatesHook;
 
 class Installer implements LoadExtensionSchemaUpdatesHook {
 
-	/**
-	 * @inheritDoc
-	 * @param DatabaseUpdater $updater
-	 *
-	 * $updater isn't type-hinted because the hook interface doesn't
-	 * type it either; adding a type here narrows it and throws a fatal
-	 * "Declaration must be compatible" error.
-	 */
+	/** @inheritDoc */
 	public function onLoadExtensionSchemaUpdates( $updater ): void {
 		$dir = __DIR__ . '/../../../sql';
 		$dbType = $updater->getDB()->getType();

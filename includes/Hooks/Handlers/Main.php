@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Auth\Hook\ExemptFromAccountCreationThrottleHook;
@@ -23,7 +25,7 @@ class Main implements
 
 	/**
 	 * @inheritDoc
-	 * @suppress PhanUnusedPublicMethodParameter
+	 * @param string $ip @phan-unused-param
 	 */
 	public function onExemptFromAccountCreationThrottle( $ip ): bool {
 		// keyed on the handler's IP, it would cap approvals per day

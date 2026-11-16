@@ -1,10 +1,14 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Config\Config;
 use MediaWiki\Extension\ConfirmEdit\Hooks\ConfirmEditCanUserSkipCaptchaHook;
 use MediaWiki\Extension\ConfirmEdit\Hooks\ConfirmEditTriggersCaptchaHook;
+use MediaWiki\Page\PageIdentity;
+use MediaWiki\User\User;
 use Miraheze\MirahezeRequests\Requests\AccountCreator;
 
 class ConfirmEdit implements
@@ -12,7 +16,7 @@ class ConfirmEdit implements
 	ConfirmEditTriggersCaptchaHook
 {
 
-	public const TRIGGER = 'requestaccount';
+	public const string TRIGGER = 'requestaccount';
 
 	public function __construct(
 		private readonly Config $config,
@@ -22,7 +26,7 @@ class ConfirmEdit implements
 
 	/**
 	 * @inheritDoc
-	 * @suppress PhanUnusedPublicMethodParameter
+	 * @param User $user @phan-unused-param
 	 */
 	public function onConfirmEditCanUserSkipCaptcha( $user, &$result ): void {
 		// the requester already solved one, and the handler can't
@@ -33,7 +37,8 @@ class ConfirmEdit implements
 
 	/**
 	 * @inheritDoc
-	 * @suppress PhanUnusedPublicMethodParameter
+	 * @param string $action
+	 * @param PageIdentity|null $page @phan-unused-param
 	 */
 	public function onConfirmEditTriggersCaptcha( string $action, $page, bool &$result ): void {
 		// ConfirmEdit ignores triggers registered by manifest v2 extensions

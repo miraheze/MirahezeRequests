@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Exception\ErrorPageError;
@@ -10,8 +12,6 @@ use RuntimeException;
 
 /** Keeps authentication on the shared domain and the queue on the wiki. */
 class AccountRequestRouter {
-
-	public const AUTH_QUERY = [ 'usesul3' => '1' ];
 
 	public function __construct(
 		private readonly ?SharedDomainUtils $sharedDomainUtils,
@@ -38,9 +38,8 @@ class AccountRequestRouter {
 		}
 
 		$query = $request->getQueryValuesOnly();
-		unset( $query['title'] );
+		unset( $query['title'], $query['usesul3'] );
 		$title = $page->getPageTitle( $par === null || $par === '' ? false : $par );
-		$query = self::AUTH_QUERY + $query;
 		// On the shared domain, the script path already includes the wiki prefix.
 		$url = $this->sharedDomainUtils->isSharedDomain() ? $title->getFullURL() :
 			$this->sharedDomainUtils->getSharedDomainPrefix() . $title->getLocalURL();

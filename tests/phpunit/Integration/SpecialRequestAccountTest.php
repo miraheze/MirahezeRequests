@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
 use MediaWiki\MainConfigNames;
@@ -107,7 +109,6 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 				'wpexplanation' => str_repeat( 'A', FieldValidator::MAX_TEXT_LENGTH + 1 ),
 				'wpcomments' => '',
 				'wpconsent' => 1,
-				'usesul3' => '1',
 			], true ),
 			'qqx'
 		);

@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Specials;
 
 use MediaWiki\Deferred\DeferredUpdates;
@@ -28,7 +30,7 @@ use StatusValue;
 
 class SpecialRequestAccount extends SpecialRequest {
 	// should be customizable in config?
-	public const GLOBALBLOCK_REASONS = [
+	public const array GLOBALBLOCK_REASONS = [
 		'crosswiki-abuse',
 		'crosswiki-spam',
 		'crosswiki-vandalism',
@@ -192,11 +194,6 @@ class SpecialRequestAccount extends SpecialRequest {
 		return $fields;
 	}
 
-	/** @inheritDoc */
-	protected function alterForm( HTMLForm $form ): void {
-		$form->addHiddenFields( AccountRequestRouter::AUTH_QUERY );
-	}
-
 	public function isValidUsername( ?string $username ): StatusValue|true {
 		// not `!$username`: also true for "0", a legal username
 		if ( $username === null || $username === '' ) {
@@ -308,7 +305,6 @@ class SpecialRequestAccount extends SpecialRequest {
 		], $this->getContext(), 'requestaccount-confirm' );
 
 		$form
-			->addHiddenFields( AccountRequestRouter::AUTH_QUERY )
 			->setWrapperLegendMsg( 'requestaccount-confirm-legend' )
 			->setSubmitTextMsg( 'requestaccount-confirm-submit' )
 			->setSubmitCallback( $this->confirmRequest( ... ) );

@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Requests;
 
 use MediaWiki\Config\ServiceOptions;
@@ -14,7 +16,7 @@ use StatusValue;
 /** Mails the requester in the language they used for the request. */
 class AccountRequestMailer {
 
-	public const CONSTRUCTOR_OPTIONS = [
+	public const array CONSTRUCTOR_OPTIONS = [
 		ConfigNames::AccountConfirmationExpiry,
 		MainConfigNames::NewPasswordExpiry,
 		MainConfigNames::PasswordSender,
