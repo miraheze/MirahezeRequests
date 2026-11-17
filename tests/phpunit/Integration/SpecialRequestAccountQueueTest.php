@@ -13,6 +13,8 @@ use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use SpecialPageTestBase;
 use StatusValue;
+use Wikimedia\Parsoid\Core\DOMCompat;
+use Wikimedia\Parsoid\Ext\DOMUtils;
 
 /**
  * @group Database
@@ -239,6 +241,49 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'name="type"', $html );
 		$this->assertStringContainsString( 'value="closed"', $html );
 		$this->assertStringNotContainsString( 'name="wptype"', $html );
+	}
+
+	/** @dataProvider provideQueueTabStatuses */
+	public function testStatusFilterMatchesTheCurrentTab(
+		string $type,
+		string $invalidStatus,
+		array $expectedOptions,
+		bool $showsOpen,
+		bool $showsClosed
+	): void {
+		$this->newRequest( 'Open status probe', 'openstatus@example.org', true, null );
+		$closedId = $this->newRequest( 'Closed status probe', 'closedstatus@example.org', true, null );
+		$manager = $this->getManager();
+		$manager->getById( $closedId );
+		$manager->transitionStatus( MirahezeRequestsStatus::Pending->value, MirahezeRequestsStatus::Declined->value );
+
+		[ $html ] = $this->executeSpecialPage(
+			'', new FauxRequest( [ 'type' => $type, 'status' => $invalidStatus ] ),
+			'qqx', $this->getTestSysop()->getAuthority()
+		);
+		$options = DOMCompat::querySelectorAll( DOMUtils::parseHTML( $html ), 'select[name="status"] option' );
+		$values = [];
+		foreach ( $options as $option ) {
+			$values[] = $option->getAttribute( 'value' );
+		}
+		$this->assertSame( $expectedOptions, $values );
+		$this->assertSame( $showsOpen, str_contains( $html, 'Open status probe' ) );
+		$this->assertSame( $showsClosed, str_contains( $html, 'Closed status probe' ) );
+	}
+
+	public static function provideQueueTabStatuses(): array {
+		return [
+			'open excludes resolved statuses' => [
+				'open', 'declined', [ '*', 'pending', 'starting', 'mailfailed', 'sending' ], true, false,
+			],
+			'closed excludes active statuses' => [
+				'closed', 'pending', [ '*', 'complete', 'declined' ], false, true,
+			],
+			'all still excludes unconfirmed requests' => [
+				'all', 'unconfirmed', [ '*', 'complete', 'declined', 'pending', 'starting', 'mailfailed', 'sending' ],
+				true, true,
+			],
+		];
 	}
 
 	public function testUsernameOfZeroFiltersTheQueue(): void {

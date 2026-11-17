@@ -297,7 +297,7 @@ class SpecialRequestAccount extends SpecialRequest {
 		$this->requestManager->getById( $id );
 
 		// prevent auto link scanners in mail clients
-		$form = HTMLForm::factory( 'codex', [
+		$form = HTMLForm::factory( 'ooui', [
 			'info' => [
 				'type' => 'info',
 				'default' => $this->msg( 'requestaccount-confirm-info', $this->requestManager->getUsername() )->text(),

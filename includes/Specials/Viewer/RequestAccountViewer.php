@@ -18,9 +18,9 @@ use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
 use MediaWiki\Status\StatusFormatter;
 use MediaWiki\Title\Title;
-use Miraheze\MirahezeRequests\CodexHTMLFormTabs;
 use Miraheze\MirahezeRequests\FieldValidator;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\OOUIHTMLFormTabs;
 use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
@@ -434,13 +434,13 @@ class RequestAccountViewer extends RequestViewer {
 	}
 
 	/** @inheritDoc */
-	public function getForm( int $requestId ): CodexHTMLFormTabs {
+	public function getForm( int $requestId ): OOUIHTMLFormTabs {
 		// The handling section contains Codex message boxes.
 		$this->context->getOutput()->addModuleStyles( 'mediawiki.codex.messagebox.styles' );
 		$this->requestManager->getById( $requestId );
 
 		$formDescriptor = $this->getFormDescriptor();
-		$htmlForm = new CodexHTMLFormTabs( $formDescriptor, $this->context, 'requestaccount-section' );
+		$htmlForm = new OOUIHTMLFormTabs( $formDescriptor, $this->context, 'requestaccount-section' );
 
 		$htmlForm->setId( 'mirahezerequests-requestaccount-viewer' );
 		$htmlForm->suppressDefaultSubmit();

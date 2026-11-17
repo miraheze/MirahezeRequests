@@ -48,7 +48,7 @@ abstract class SpecialRequest extends FormSpecialPage {
 
 	/** @inheritDoc */
 	protected function getDisplayFormat(): string {
-		return 'codex';
+		return 'ooui';
 	}
 
 	/** @inheritDoc */

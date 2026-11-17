@@ -38,6 +38,7 @@ class AccountRequestRouter {
 		}
 
 		$query = $request->getQueryValuesOnly();
+		// Keep the routed page and the configured SUL3 default; forwarding usesul3=0 would loop.
 		unset( $query['title'], $query['usesul3'] );
 		$title = $page->getPageTitle( $par === null || $par === '' ? false : $par );
 		// On the shared domain, the script path already includes the wiki prefix.

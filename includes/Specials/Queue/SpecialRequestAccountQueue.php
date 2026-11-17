@@ -83,17 +83,25 @@ class SpecialRequestAccountQueue extends RequestQueue {
 	protected function getFiltersFromRequest(): array {
 		$req = $this->getRequest();
 		$status = $req->getText( 'status' );
-		$queueStatuses = array_map(
-			static fn ( MirahezeRequestsStatus $case ) => $case->value,
-			MirahezeRequestsStatus::queueCases()
-		);
 
 		return [
 			'requester' => $req->getText( 'requester' ),
-			'status' => in_array( $status, $queueStatuses, true ) ? $status : '',
+			'status' => in_array( $status, $this->getStatusesForCurrentTab(), true ) ? $status : '',
 			'username' => $req->getText( 'username' ),
 			'email' => $req->getText( 'email' ),
 		];
+	}
+
+	/** @return string[] */
+	private function getStatusesForCurrentTab(): array {
+		return match ( $this->getType() ) {
+			'open' => MirahezeRequestsStatus::OPEN,
+			'closed' => MirahezeRequestsStatus::CLOSED,
+			default => array_map(
+				static fn ( MirahezeRequestsStatus $case ): string => $case->value,
+				MirahezeRequestsStatus::queueCases()
+			),
+		};
 	}
 
 	/** @inheritDoc */
@@ -101,15 +109,12 @@ class SpecialRequestAccountQueue extends RequestQueue {
 		// Message-based so option labels are actually translatable,
 		// rather than a hardcoded English string per status.
 		$statusOptions = [ 'mirahezerequests-status-all' => '*' ];
-		foreach ( MirahezeRequestsStatus::queueCases() as $case ) {
+		foreach ( $this->getStatusesForCurrentTab() as $status ) {
+			$case = MirahezeRequestsStatus::from( $status );
 			$statusOptions[$case->getMessageKey()] = $case->value;
 		}
 
 		return [
-			'info' => [
-				'type' => 'info',
-				'default' => $this->msg( 'requestaccountqueue' )->text(),
-			],
 			'username' => [
 				'type' => 'text',
 				'name' => 'username',

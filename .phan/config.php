@@ -7,16 +7,22 @@ $cfg = require __DIR__ . '/../vendor/mediawiki/mediawiki-phan-config/src/config.
 $cfg['minimum_target_php_version'] = '8.4';
 
 $mediaWikiPath = getenv( 'MW_INSTALL_PATH' ) ?: '../..';
-$extensions = array_map(
-	static fn ( string $extension ): string => "$mediaWikiPath/extensions/$extension",
-	[ 'AntiSpoof', 'CentralAuth', 'ConfirmEdit', 'TitleBlacklist' ]
-);
 $cfg['directory_list'] = array_merge(
-	$cfg['directory_list'], $extensions
+	$cfg['directory_list'], [
+		"$mediaWikiPath/extensions/AntiSpoof",
+		"$mediaWikiPath/extensions/CentralAuth",
+		"$mediaWikiPath/extensions/ConfirmEdit",
+		"$mediaWikiPath/extensions/TitleBlacklist",
+	]
 );
 
 $cfg['exclude_analysis_directory_list'] = array_merge(
-	$cfg['exclude_analysis_directory_list'], $extensions
+	$cfg['exclude_analysis_directory_list'], [
+		"$mediaWikiPath/extensions/AntiSpoof",
+		"$mediaWikiPath/extensions/CentralAuth",
+		"$mediaWikiPath/extensions/ConfirmEdit",
+		"$mediaWikiPath/extensions/TitleBlacklist",
+	]
 );
 
 $cfg['suppress_issue_types'] = [

@@ -94,27 +94,6 @@
 			]
 		}
 	},
-	"ResourceModules": {
-		"ext.mirahezerequests.tabs": {
-			"class": "MediaWiki\\ResourceLoader\\CodexModule",
-			"codexComponents": [
-				"CdxMessage",
-				"CdxTabs",
-				"CdxTab"
-			],
-			"dependencies": [
-				"vue"
-			],
-			"packageFiles": [
-				"ext.mirahezerequests.tabs/init.js",
-				"ext.mirahezerequests.tabs/App.vue"
-			]
-		}
-	},
-	"ResourceFileModulePaths": {
-		"localBasePath": "resources",
-		"remoteExtPath": "MirahezeRequests/resources"
-	},
 	"config": {
 		"MirahezeRequestsAccountConfirmationExpiry": {
 			"value": 86400,

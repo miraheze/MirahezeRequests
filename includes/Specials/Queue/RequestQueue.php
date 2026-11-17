@@ -141,9 +141,9 @@ abstract class RequestQueue extends SpecialPage {
 			'default' => $filters['type'],
 		];
 
-		$form = HTMLForm::factory( 'codex', $descriptor, $this->getContext() );
+		$form = HTMLForm::factory( 'ooui', $descriptor, $this->getContext() );
 		$form->setMethod( 'get' )
-			->setWrapperLegendMsg( $this->getName() )
+			->setWrapperLegendMsg( 'mirahezerequests-filter-legend' )
 			->setSubmitTextMsg( 'search' )
 			->prepareForm()
 			->displayForm( false );

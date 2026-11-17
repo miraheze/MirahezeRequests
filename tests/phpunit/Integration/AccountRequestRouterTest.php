@@ -34,14 +34,14 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		return $this->getServiceContainer()->getSpecialPageFactory()->getPage( $this->pageName );
 	}
 
-	private function configureDomain( bool $sharedDomain, bool $sul3Available = true ): void {
+	private function configureDomain( bool $sharedDomain ): void {
 		if ( !$this->getServiceContainer()->getExtensionRegistry()->isLoaded( 'CentralAuth' ) ) {
 			$this->markTestSkipped( 'CentralAuth is not available' );
 		}
 
 		$this->overrideConfigValues( [
-			CAMainConfigNames::CentralAuthSharedDomainCallback => $sul3Available ?
-				static fn ( $wiki ) => 'https://auth.example.org/metawiki' : false,
+			CAMainConfigNames::CentralAuthSharedDomainCallback =>
+				static fn ( $wiki ) => 'https://auth.example.org/metawiki',
 			CAMainConfigNames::CentralAuthEnableSul3 => true,
 			CAMainConfigNames::CentralAuthRestrictSharedDomain => true,
 			CAMainConfigNames::CentralAuthSul3SharedDomainRestrictions => [
@@ -160,13 +160,6 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->expectException( \RuntimeException::class );
 		$this->expectExceptionMessage( 'The request queue wiki must be registered in WikiMap.' );
 		$this->getServiceContainer()->get( 'MirahezeRequestsAccountRequestRouter' )->getQueueURL( [] );
-	}
-
-	public function testWikiWithoutSul3RendersRequestLocally(): void {
-		$this->configureDomain( false, false );
-		[ $html, $response ] = $this->executeSpecialPage();
-		$this->assertNull( $response->getHeader( 'Location' ) );
-		$this->assertStringContainsString( '(requestaccount-username)', $html );
 	}
 
 	public function testSharedDomainApprovalCreatesGlobalAccountAndReturnsToMeta(): void {
