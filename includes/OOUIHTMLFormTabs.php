@@ -34,8 +34,8 @@ class OOUIHTMLFormTabs extends OOUIHTMLForm {
 			] );
 		}
 
-		$this->getOutput()->addModules( 'oojs-ui-widgets' );
-		$this->getOutput()->addModuleStyles( 'oojs-ui-widgets.styles' );
+		$this->getOutput()->addModules( [ 'oojs-ui-widgets' ] );
+		$this->getOutput()->addModuleStyles( [ 'oojs-ui-widgets.styles' ] );
 
 		$tabs = new IndexLayout( [
 			'infusable' => true,
