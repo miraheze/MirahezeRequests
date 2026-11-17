@@ -67,7 +67,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->pageName = $pageName;
 		$this->configureDomain( false );
 		[ , $response ] = $this->executeSpecialPage(
-			$subpage, new FauxRequest( [ 'title' => 'Special:Userlogin', 'usesul3' => '0', 'uselang' => 'ja' ] )
+			$subpage, new FauxRequest( [ 'uselang' => 'ja' ] )
 		);
 
 		$url = $response->getHeader( 'Location' );
@@ -108,21 +108,6 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( '(requestaccount-username)', $html );
 	}
 
-	public function testSharedDomainNormalizesLegacySul2LinkWithoutDuplicatingWikiPrefix(): void {
-		$this->configureDomain( true );
-		[ , $response ] = $this->executeSpecialPage( '', new FauxRequest( [ 'usesul3' => '0' ] ) );
-		$this->assertSame(
-			'https://auth.example.org/metawiki/wiki/Special:RequestAccount',
-			$response->getHeader( 'Location' )
-		);
-	}
-
-	public function testSharedDomainRejectsSul2Post(): void {
-		$this->configureDomain( true );
-		$this->expectException( ErrorPageError::class );
-		$this->executeSpecialPage( '', new FauxRequest( [ 'usesul3' => '0' ], true ) );
-	}
-
 	public function testLocalQueueStaysOnMeta(): void {
 		$this->pageName = 'RequestAccountQueue';
 		$this->configureDomain( false );
@@ -140,7 +125,7 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->configureDomain( true );
 		[ , $response ] = $this->executeSpecialPage(
 			'',
-			new FauxRequest( [ 'type' => 'closed', 'email' => 'test@example.org', 'usesul3' => '1' ] ),
+			new FauxRequest( [ 'type' => 'closed', 'email' => 'test@example.org' ] ),
 			'qqx',
 			$this->getTestSysop()->getAuthority()
 		);
