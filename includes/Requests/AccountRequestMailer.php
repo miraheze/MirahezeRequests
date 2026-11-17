@@ -14,6 +14,7 @@ use MediaWiki\Message\Message;
 use MediaWiki\SpecialPage\SpecialPage;
 use Miraheze\MirahezeRequests\ConfigNames;
 use StatusValue;
+use Wikimedia\Message\MessageSpecifier;
 
 /** Mails the requester in the language they used for the request. */
 class AccountRequestMailer {
@@ -100,7 +101,8 @@ class AccountRequestMailer {
 		$status = $this->emailer->send( [ $to ], $from, $subject, $body );
 		if ( !$status->isGood() ) {
 			$error = implode( "\n", array_map(
-				static fn ( $message ) => Message::newFromSpecifier( $message )->inLanguage( 'en' )->plain(),
+				static fn ( MessageSpecifier $message ): string => Message::newFromSpecifier( $message )
+					->inLanguage( 'en' )->plain(),
 				$status->getMessages()
 			) );
 
