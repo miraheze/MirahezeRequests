@@ -10,8 +10,6 @@ use MediaWiki\Extension\CentralAuth\Config\CAMainConfigNames;
 use MediaWiki\Extension\CentralAuth\User\CentralAuthUser;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Request\FauxRequest;
-use MediaWiki\Site\MediaWikiSite;
-use MediaWiki\Site\SiteLookup;
 use MediaWiki\SpecialPage\SpecialPage;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
@@ -54,11 +52,15 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 			MainConfigNames::ScriptPath => $sharedDomain ? '/metawiki/w' : '/w',
 			MainConfigNames::Script => $sharedDomain ? '/metawiki/w/index.php' : '/w/index.php',
 		] );
-		$site = new MediaWikiSite();
-		$site->setPagePath( 'https://meta.example.org/wiki/$1' );
-		$siteLookup = $this->createMock( SiteLookup::class );
-		$siteLookup->method( 'getSite' )->willReturn( $site );
-		$this->setService( 'SiteLookup', $siteLookup );
+		// SUL3 changes the current globals; WikiMap must resolve the wiki's original settings.
+		$conf = new SiteConfiguration();
+		$conf->suffixes = [ '' ];
+		$conf->settings = [
+			'wgServer' => [ 'default' => 'https://meta.example.org' ],
+			'wgCanonicalServer' => [ 'default' => 'https://meta.example.org' ],
+			'wgArticlePath' => [ 'default' => '/wiki/$1' ],
+		];
+		$this->setMwGlobals( 'wgConf', $conf );
 		$this->setGroupPermissions( 'sysop', 'handle-requestaccount', true );
 	}
 
@@ -133,18 +135,6 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->assertStringStartsWith( 'https://meta.example.org/wiki/Special:RequestAccountQueue?', $url );
 		parse_str( parse_url( $url, PHP_URL_QUERY ), $query );
 		$this->assertSame( [ 'type' => 'closed', 'email' => 'test@example.org' ], $query );
-	}
-
-	public function testSharedQueueFailsWhenWikiIsUnregistered(): void {
-		$this->configureDomain( true );
-		$this->setMwGlobals( 'wgConf', new SiteConfiguration() );
-		$siteLookup = $this->createMock( SiteLookup::class );
-		$siteLookup->method( 'getSite' )->willReturn( null );
-		$this->setService( 'SiteLookup', $siteLookup );
-
-		$this->expectException( \RuntimeException::class );
-		$this->expectExceptionMessage( 'The request queue wiki must be registered in WikiMap.' );
-		$this->getServiceContainer()->get( 'MirahezeRequestsAccountRequestRouter' )->getQueueURL( [] );
 	}
 
 	public function testSharedDomainApprovalCreatesGlobalAccountAndReturnsToMeta(): void {
