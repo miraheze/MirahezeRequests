@@ -4,14 +4,9 @@ CREATE TABLE /*_*/account_requests (
 	request_timestamp BINARY(14) NOT NULL,
 	request_email VARCHAR(255) NOT NULL,
 	request_username VARCHAR(255) NOT NULL,
-	request_reason ENUM(
-		'globalblock', 'abusefilter', 'captcha', 'other'
-	) NOT NULL,
+	request_reason VARCHAR(255) NOT NULL,
 	request_explanation BLOB NOT NULL,
-	request_status ENUM(
-		'complete', 'declined', 'failed',
-		'inprogress', 'pending', 'starting'
-  	) NOT NULL,
+	request_status VARCHAR(255) NOT NULL,
 	request_locked TINYINT UNSIGNED DEFAULT 0 NOT NULL,
 	INDEX request_actor_timestamp (
     	request_actor, request_timestamp

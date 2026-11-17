@@ -1,7 +1,7 @@
 # MirahezeRequests
 A Miraheze-specific extension designed to facilitate and automate user requests.
 
-Developed by Pskyechology.
+Developed by Miraheze.
 
 Licensed under the GPLv3 (or later) LICENSE.
 

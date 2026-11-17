@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Miraheze\MirahezeRequests\Services;
 
 use MediaWiki\Exception\ErrorPageError;
@@ -20,13 +22,20 @@ class MirahezeRequestsDatabaseService {
 	}
 
 	/**
-	 * @throws ErrorPageError
+	 * Whether this wiki is the one the virtual-mirahezerequests
+	 * domain resolves to, wherever that domain is physically mapped.
 	 */
-	public function isCentralDB(): bool|ErrorPageError {
-		if ( !WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() ) ) {
+	public function isCentralWiki(): bool {
+		return WikiMap::isCurrentWikiDbDomain( $this->dbr->getDomainID() );
+	}
+
+	/**
+	 * @throws ErrorPageError if this isn't the central wiki
+	 */
+	public function assertCentralWiki(): void {
+		if ( !$this->isCentralWiki() ) {
 			throw new ErrorPageError( 'mirahezerequests-notcentral', 'mirahezerequests-notcentral-text' );
 		}
-		return true;
 	}
 
 	public function getDbw(): IDatabase {

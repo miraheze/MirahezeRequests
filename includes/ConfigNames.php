@@ -1,5 +1,7 @@
 <?php
 
+declare( strict_types = 1 );
+
 // phpcs:disable Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase
 namespace Miraheze\MirahezeRequests;
 
@@ -9,15 +11,11 @@ namespace Miraheze\MirahezeRequests;
  */
 class ConfigNames {
 
-	public const DatabaseSuffix = 'MirahezeRequestsDatabaseSuffix';
+	public const string AccountConfirmationExpiry = 'MirahezeRequestsAccountConfirmationExpiry';
 
-	public const EnableAutomatedJob = 'RenameWikiEnableAutomatedJob';
+	public const string AccountRequestsOpen = 'MirahezeRequestsAccountRequestsOpen';
 
-	public const HelpUrl = 'RenameWikiHelpUrl';
+	public const string IPVisibilityGroups = 'MirahezeRequestsIPVisibilityGroups';
 
-	public const ScriptCommand = 'RenameWikiScriptCommand';
-
-	public const UsersNotifiedOnAllRequests = 'RenameWikiUsersNotifiedOnAllRequests';
-
-	public const UsersNotifiedOnFailedRenameWikis = 'RenameWikiUsersNotifiedOnFailedRenameWikis';
+	public const string IPRetentionDays = 'MirahezeRequestsIPRetentionDays';
 }
