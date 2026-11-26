@@ -251,22 +251,26 @@ class SpecialRequestAccount extends SpecialRequest {
 			return Status::newGood();
 		}
 
+		$dbw = $this->dbService->getDbw();
 		[ $id, $token ] = $this->requestManager->createUnconfirmed(
-			$this->getInsertRow( $data, $this->dbService->getDbw()->timestamp() ),
+			$this->getInsertRow( $data, $dbw->timestamp() ),
 			// a logged-out actor would keep the IP past its retention
 			$user->isNamed() ? $user : null
 		);
 
-		$this->requestManager->getById( $id );
-		if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
-			$this->requestManager->deleteUnconfirmed( $id );
-			// A different response would still reveal whether the address has an active request.
-			return Status::newGood();
-		}
-
-		DeferredUpdates::addCallableUpdate( function () {
-			$this->requestManager->purgeExpiredData();
-		} );
+		// Waiting for SMTP would reveal through response timing whether the address has an active request.
+		DeferredUpdates::addCallableUpdate(
+			function () use ( $id, $token ): void {
+				$this->requestManager->getById( $id );
+				if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
+					$this->requestManager->deleteUnconfirmed( $id );
+					return;
+				}
+				$this->requestManager->purgeExpiredData();
+			},
+			DeferredUpdates::POSTSEND,
+			$dbw
+		);
 
 		return Status::newGood();
 	}

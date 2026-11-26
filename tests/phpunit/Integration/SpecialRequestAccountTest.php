@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
+use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
@@ -13,6 +14,7 @@ use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Specials\SpecialRequestAccount;
 use SpecialPageTestBase;
 use StatusValue;
+use Wikimedia\ScopedCallback;
 
 /**
  * @group Database
@@ -126,7 +128,9 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 	}
 
 	/** @dataProvider provideConfirmationSubmission */
-	public function testConfirmationSubmissionShowsTheSameNotice( ?bool $mailDelivered, int $expectedCount ): void {
+	public function testConfirmationSubmissionDefersMailAndShowsTheSameNotice(
+		?bool $mailDelivered, int $expectedCount, bool $rollBack
+	): void {
 		$this->overrideConfigValue( MainConfigNames::RateLimits, [] );
 		$this->setGroupPermissions( '*', 'skipcaptcha', true );
 		$email = 'confirmation-notice@example.org';
@@ -144,14 +148,22 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 			], null );
 		}
 
+		$sendCount = 0;
 		$mailer = $this->createMock( AccountRequestMailer::class );
-		$mailer->expects( $this->exactly( $mailDelivered === null ? 0 : 1 ) )
-			->method( 'sendConfirmation' )
-			->willReturn( $mailDelivered === false
-				? StatusValue::newFatal( 'php-mail-error' )
-				: StatusValue::newGood() );
+		$mailer->method( 'sendConfirmation' )->willReturnCallback(
+			static function () use ( &$sendCount, $mailDelivered ): StatusValue {
+				$sendCount++;
+				return $mailDelivered === false ? StatusValue::newFatal( 'php-mail-error' ) : StatusValue::newGood();
+			}
+		);
 		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
 
+		// CLI tests can run queued updates as soon as the database is idle.
+		$deferredScope = DeferredUpdates::preventOpportunisticUpdates();
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		if ( $rollBack ) {
+			$lbFactory->beginPrimaryChanges( __METHOD__ );
+		}
 		[ $html ] = $this->executeSpecialPage( '', new FauxRequest( [
 			'wpusername' => 'New confirmation request',
 			'wpemail' => $email,
@@ -160,6 +172,15 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 			'wpconsent' => 1,
 		], true ), 'qqx' );
 		$this->assertStringContainsString( "(requestaccount-success: $email,", $html );
+
+		if ( $rollBack ) {
+			$lbFactory->rollbackPrimaryChanges( __METHOD__ );
+		}
+		DeferredUpdates::doUpdates( DeferredUpdates::PRESEND );
+		$this->assertSame( 0, $sendCount, 'Confirmation mail must wait until after the response' );
+		$this->runDeferredUpdates();
+		ScopedCallback::consume( $deferredScope );
+		$this->assertSame( $mailDelivered !== null && !$rollBack ? 1 : 0, $sendCount );
 
 		$count = $this->getDb()->newSelectQueryBuilder()
 			->select( 'COUNT(*)' )
@@ -172,9 +193,10 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 
 	public static function provideConfirmationSubmission(): array {
 		return [
-			'new request' => [ true, 1 ],
-			'existing request' => [ null, 1 ],
-			'delivery failed' => [ false, 0 ],
+			'new request' => [ true, 1, false ],
+			'existing request' => [ null, 1, false ],
+			'delivery failed' => [ false, 0, false ],
+			'rolled back' => [ true, 0, true ],
 		];
 	}
 
