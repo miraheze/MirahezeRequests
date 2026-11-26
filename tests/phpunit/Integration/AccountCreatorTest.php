@@ -45,7 +45,6 @@ class AccountCreatorTest extends MediaWikiIntegrationTestCase {
 		$status = $this->createAccount( 'Requested user' );
 
 		$this->assertStatusGood( $status );
-		$this->assertIsString( $status->getValue(), 'The temporary password' );
 		$this->assertCreatedWithConfirmedEmail( 'Requested user' );
 	}
 

@@ -4,11 +4,14 @@ declare( strict_types = 1 );
 
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
+use MediaWiki\Context\RequestContext;
 use MediaWiki\Exception\PermissionsError;
 use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Status\Status;
 use MediaWiki\User\UserIdentity;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use SpecialPageTestBase;
@@ -529,6 +532,33 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 			'delivery failed' => [ true, false ],
 			'rolled back' => [ false, true ],
 		];
+	}
+
+	public function testPasswordIssuanceFailureLeavesApprovalMailRetryable(): void {
+		$services = $this->getServiceContainer();
+		$creator = $this->getMockBuilder( AccountCreator::class )
+			->setConstructorArgs( [
+				$services->getAuthManager(),
+				RequestContext::getMain(),
+				$services->getUserFactory(),
+			] )
+			->onlyMethods( [ 'reissueTemporaryPassword' ] )
+			->getMock();
+		$creator->expects( $this->once() )->method( 'reissueTemporaryPassword' )
+			->willReturn( Status::newFatal( 'authmanager-change-not-supported' ) );
+		$this->setService( 'MirahezeRequestsAccountCreator', $creator );
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->never() )->method( 'sendApproved' );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+
+		$name = 'Password issuance failure';
+		$id = $this->newRequest( $name, 'password-failure@example.org', true, null );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+
+		$this->assertTrue( $services->getUserFactory()->newFromName( $name )->isRegistered() );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+		$html = $this->executeAsHandler( (string)$id, [] );
+		$this->assertStringContainsString( 'submit-resend', $html );
 	}
 
 	public function testFailedMailCanBeRetriedUntilDeliverySucceeds(): void {

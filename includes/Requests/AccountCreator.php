@@ -45,7 +45,7 @@ class AccountCreator {
 	 * @param bool $ignoreTitleBlacklist Only works with the right
 	 * @param bool $ignoreAntiSpoof Only works with the right
 	 * @param WebRequest $webRequest The handler's request, holding the AuthManager session
-	 * @return Status With the temporary password, which the caller must send
+	 * @return Status The account creation and email confirmation result
 	 */
 	public function createAccount(
 		int $requestId,
@@ -60,7 +60,7 @@ class AccountCreator {
 			return Status::newFatal( 'authmanager-create-disabled' );
 		}
 
-		// mailed by us so the approval email is customizable
+		// AuthManager uses this request to select the account creation provider.
 		$passwordRequest = TemporaryPasswordAuthenticationRequest::newRandom();
 		$passwordRequest->username = $name;
 		$passwordRequest->mailpassword = false;
@@ -120,7 +120,7 @@ class AccountCreator {
 		// also updates the global account via CentralAuth
 		$user->saveSettings();
 
-		return Status::newGood( $passwordRequest->password );
+		return Status::newGood();
 	}
 
 	public function reissueTemporaryPassword( string $name, string $email, User $handler ): Status {

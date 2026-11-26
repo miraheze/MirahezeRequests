@@ -27,6 +27,8 @@ use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use Miraheze\MirahezeRequests\Requests\UsernameValidator;
 use Miraheze\MirahezeRequests\Services\MirahezeRequestsDatabaseService;
 use Miraheze\MirahezeRequests\Specials\AccountRequestRouter;
+use StatusValue;
+use Wikimedia\Message\MessageSpecifier;
 
 class RequestAccountViewer extends RequestViewer {
 
@@ -513,6 +515,15 @@ class RequestAccountViewer extends RequestViewer {
 			$completed = true;
 			$this->log( 'accept', '' );
 
+			// Setting the confirmed email can invalidate the password from account creation.
+			$status = $this->accountCreator->reissueTemporaryPassword(
+				$this->requestManager->getUsername(), $this->requestManager->getEmail(), $user
+			);
+			if ( !$status->isGood() ) {
+				$this->requestManager->finishApprovalMail( false, $this->getApprovalMailFailureNotes( $status ) );
+				return $status;
+			}
+
 			$this->queueApprovalMail( $status->getValue() );
 			$this->redirectToQueue();
 
@@ -571,13 +582,7 @@ class RequestAccountViewer extends RequestViewer {
 					$success = $mailStatus->isGood();
 					$notes = $success ?
 						$this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text() :
-						$this->context->msg( 'requestaccount-notes-created-mail-failed' )
-							->params( implode( "\n", array_map(
-								static fn ( $message ) => Message::newFromSpecifier( $message )
-									->inContentLanguage()->plain(),
-								$mailStatus->getMessages()
-							) ) )
-							->inContentLanguage()->plain();
+						$this->getApprovalMailFailureNotes( $mailStatus );
 				} catch ( \Throwable $e ) {
 					LoggerFactory::getInstance( 'MirahezeRequests' )->error(
 						'Account notification failed for request {requestId}',
@@ -589,6 +594,17 @@ class RequestAccountViewer extends RequestViewer {
 			},
 			__METHOD__
 		);
+	}
+
+	private function getApprovalMailFailureNotes( StatusValue $status ): string {
+		$errors = array_map(
+			static fn ( MessageSpecifier $message ): string => Message::newFromSpecifier( $message )
+				->inContentLanguage()->plain(),
+			$status->getMessages()
+		);
+		return $this->context->msg( 'requestaccount-notes-created-mail-failed' )
+			->params( implode( "\n", $errors ) )
+			->inContentLanguage()->plain();
 	}
 
 	private function decline( array $formData ): bool|Status {
