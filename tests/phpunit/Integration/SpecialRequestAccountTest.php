@@ -128,7 +128,7 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 	}
 
 	/** @dataProvider provideConfirmationSubmission */
-	public function testConfirmationSubmissionDefersMailAndShowsTheSameNotice(
+	public function testConfirmationSubmissionDefersStorageAndMail(
 		?bool $mailDelivered, int $expectedCount, bool $rollBack
 	): void {
 		$this->overrideConfigValue( MainConfigNames::RateLimits, [] );
@@ -172,23 +172,24 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 			'wpconsent' => 1,
 		], true ), 'qqx' );
 		$this->assertStringContainsString( "(requestaccount-success: $email,", $html );
+		$requests = $this->getDb()->newSelectQueryBuilder()
+			->select( 'COUNT(*)' )
+			->from( 'account_requests' )
+			->where( [ 'request_email' => $email ] )
+			->caller( __METHOD__ );
 
 		if ( $rollBack ) {
 			$lbFactory->rollbackPrimaryChanges( __METHOD__ );
 		}
 		DeferredUpdates::doUpdates( DeferredUpdates::PRESEND );
+		$this->assertSame( $mailDelivered === null ? 1 : 0, (int)$requests->fetchField(),
+			'Confirmation requests must be stored after the response' );
 		$this->assertSame( 0, $sendCount, 'Confirmation mail must wait until after the response' );
 		$this->runDeferredUpdates();
 		ScopedCallback::consume( $deferredScope );
 		$this->assertSame( $mailDelivered !== null && !$rollBack ? 1 : 0, $sendCount );
 
-		$count = $this->getDb()->newSelectQueryBuilder()
-			->select( 'COUNT(*)' )
-			->from( 'account_requests' )
-			->where( [ 'request_email' => $email ] )
-			->caller( __METHOD__ )
-			->fetchField();
-		$this->assertSame( $expectedCount, (int)$count );
+		$this->assertSame( $expectedCount, (int)$requests->fetchField() );
 	}
 
 	public static function provideConfirmationSubmission(): array {

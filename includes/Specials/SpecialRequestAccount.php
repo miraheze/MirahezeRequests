@@ -246,33 +246,38 @@ class SpecialRequestAccount extends SpecialRequest {
 			return Status::newFatal( 'requestaccount-error-duplicate-username' );
 		}
 
-		$this->submittedEmail = trim( $data['email'] );
-		if ( $this->requestManager->hasActiveRequestForEmail( $this->submittedEmail ) ) {
-			return Status::newGood();
-		}
-
 		$dbw = $this->dbService->getDbw();
-		[ $id, $token ] = $this->requestManager->createUnconfirmed(
-			$this->getInsertRow( $data, $dbw->timestamp() ),
-			// a logged-out actor would keep the IP past its retention
-			$user->isNamed() ? $user : null
-		);
+		$row = $this->getInsertRow( $data, $dbw->timestamp() );
+		$this->submittedEmail = $row['request_email'];
+		// A logged-out actor would keep the IP past its retention.
+		$requester = $user->isNamed() ? $user : null;
 
-		// Waiting for SMTP would reveal through response timing whether the address has an active request.
+		// Writing only for new addresses before the response would expose them through database cookies.
 		DeferredUpdates::addCallableUpdate(
-			function () use ( $id, $token ): void {
-				$this->requestManager->getById( $id );
-				if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
-					$this->requestManager->deleteUnconfirmed( $id );
+			function ( string $caller ) use ( $dbw, $row, $requester ): void {
+				if ( $this->requestManager->hasActiveRequestForEmail( $row['request_email'] ) ) {
 					return;
 				}
-				$this->requestManager->purgeExpiredData();
+
+				[ $id, $token ] = $this->requestManager->createUnconfirmed( $row, $requester );
+				$dbw->onTransactionCommitOrIdle( function () use ( $id, $token ): void {
+					$this->sendConfirmation( $id, $token );
+				}, $caller );
 			},
 			DeferredUpdates::POSTSEND,
 			$dbw
 		);
 
 		return Status::newGood();
+	}
+
+	private function sendConfirmation( int $id, string $token ): void {
+		$this->requestManager->getById( $id );
+		if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
+			$this->requestManager->deleteUnconfirmed( $id );
+			return;
+		}
+		$this->requestManager->purgeExpiredData();
 	}
 
 	/** @inheritDoc */
