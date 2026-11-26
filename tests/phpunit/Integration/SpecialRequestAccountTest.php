@@ -9,6 +9,7 @@ use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
 use Miraheze\MirahezeRequests\FieldValidator;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Specials\SpecialRequestAccount;
 use SpecialPageTestBase;
 use StatusValue;
@@ -122,6 +123,59 @@ class SpecialRequestAccountTest extends SpecialPageTestBase {
 			->caller( __METHOD__ )
 			->fetchField();
 		$this->assertSame( 0, (int)$count );
+	}
+
+	/** @dataProvider provideConfirmationSubmission */
+	public function testConfirmationSubmissionShowsTheSameNotice( ?bool $mailDelivered, int $expectedCount ): void {
+		$this->overrideConfigValue( MainConfigNames::RateLimits, [] );
+		$this->setGroupPermissions( '*', 'skipcaptcha', true );
+		$email = 'confirmation-notice@example.org';
+		if ( $mailDelivered === null ) {
+			$this->getServiceContainer()->get( 'RequestAccountManager' )->createUnconfirmed( [
+				'request_timestamp' => $this->getDb()->timestamp(),
+				'request_email' => $email,
+				'request_username' => 'Existing request',
+				'request_name_warnings' => '[]',
+				'request_reason' => 'other',
+				'request_explanation' => 'Test',
+				'request_comments' => '',
+				'request_ip' => '127.0.0.1',
+				'request_language' => 'en',
+			], null );
+		}
+
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->exactly( $mailDelivered === null ? 0 : 1 ) )
+			->method( 'sendConfirmation' )
+			->willReturn( $mailDelivered === false
+				? StatusValue::newFatal( 'php-mail-error' )
+				: StatusValue::newGood() );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+
+		[ $html ] = $this->executeSpecialPage( '', new FauxRequest( [
+			'wpusername' => 'New confirmation request',
+			'wpemail' => $email,
+			'wpreason' => 'other',
+			'wpexplanation' => 'Test',
+			'wpconsent' => 1,
+		], true ), 'qqx' );
+		$this->assertStringContainsString( "(requestaccount-success: $email,", $html );
+
+		$count = $this->getDb()->newSelectQueryBuilder()
+			->select( 'COUNT(*)' )
+			->from( 'account_requests' )
+			->where( [ 'request_email' => $email ] )
+			->caller( __METHOD__ )
+			->fetchField();
+		$this->assertSame( $expectedCount, (int)$count );
+	}
+
+	public static function provideConfirmationSubmission(): array {
+		return [
+			'new request' => [ true, 1 ],
+			'existing request' => [ null, 1 ],
+			'delivery failed' => [ false, 0 ],
+		];
 	}
 
 	public function testConfirmationPutsRequestIntoQueueOnce(): void {

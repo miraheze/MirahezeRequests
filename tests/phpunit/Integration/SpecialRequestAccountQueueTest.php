@@ -4,11 +4,14 @@ declare( strict_types = 1 );
 
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
+use MediaWiki\Context\RequestContext;
 use MediaWiki\Exception\PermissionsError;
 use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Status\Status;
 use MediaWiki\User\UserIdentity;
 use Miraheze\MirahezeRequests\MirahezeRequestsStatus;
+use Miraheze\MirahezeRequests\Requests\AccountCreator;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
 use SpecialPageTestBase;
@@ -143,6 +146,31 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'blocked@example.org', $html );
 	}
 
+	public function testBlockedHandlerCanOnlyViewOwnRequestWithoutHandlerFields(): void {
+		$this->overrideConfigValue( 'MirahezeRequestsIPVisibilityGroups', [ 'sysop' ] );
+		$handler = $this->getMutableTestUser( [ 'sysop' ] )->getUser();
+		$ownId = $this->newRequest( 'Own handler request', 'own@example.org', true, $handler, '203.0.113.73' );
+		$otherId = $this->newRequest( 'Other request', 'other@example.org', true, null );
+
+		$status = $this->getServiceContainer()->getBlockUserFactory()
+			->newBlockUser( $handler->getName(), $this->getTestSysop()->getUser(), 'indefinite', 'Test block' )
+			->placeBlock();
+		$this->assertStatusGood( $status );
+		$handler->clearInstanceCache();
+		$this->assertTrue( $handler->isAllowed( 'handle-requestaccount' ) );
+		$this->assertTrue( $handler->getBlock()?->isSitewide() );
+
+		[ $html ] = $this->executeSpecialPage( (string)$otherId, new FauxRequest(), 'qqx', $handler );
+		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
+		$this->assertStringNotContainsString( 'other@example.org', $html );
+
+		[ $html ] = $this->executeSpecialPage( (string)$ownId, new FauxRequest(), 'qqx', $handler );
+		$this->assertStringContainsString( 'own@example.org', $html );
+		$this->assertStringNotContainsString( '203.0.113.73', $html );
+		$this->assertStringNotContainsString( 'submit-accept', $html );
+		$this->assertStringNotContainsString( 'requestaccount-label-same-email', $html );
+	}
+
 	/** @dataProvider provideHandlingPost */
 	public function testRequesterHandlingPostsAreRejected( array $postData ): void {
 		$mailer = $this->createMock( AccountRequestMailer::class );
@@ -218,7 +246,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		[ $html ] = $this->executeSpecialPage(
 			'',
 			new FauxRequest( [
-				'email' => 'allview@example.org',
+				'emailRequestId' => $closedId,
 				'status' => '*',
 				'type' => 'all',
 			] ),
@@ -296,6 +324,40 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		$this->assertStringContainsString( 'zero@example.org', $html );
 		$this->assertStringNotContainsString( 'other@example.org', $html );
+	}
+
+	/** @dataProvider provideEmailFilter */
+	public function testEmailFilterUsesOnlyARequestIdInTheUrl( bool $matches ): void {
+		$email = 'filtered@example.org';
+		$id = $this->newRequest( 'Filtered first', $email, true, null );
+		$this->newRequest( 'Filtered second', $email, true, null );
+		$this->newRequest( 'Unrelated queued request', 'other@example.org', true, null );
+		$handler = $this->getTestSysop()->getAuthority();
+		[ , $response ] = $this->executeSpecialPage( '', new FauxRequest( [
+			'email' => $matches ? $email : 'missing@example.org',
+			'type' => 'open',
+		], true ), 'qqx', $handler );
+
+		$url = $response->getHeader( 'Location' );
+		$this->assertIsString( $url );
+		parse_str( parse_url( $url, PHP_URL_QUERY ) ?? '', $query );
+		unset( $query['title'] );
+		$this->assertSame( [ 'type' => 'open', 'emailRequestId' => $matches ? (string)$id : '0' ], $query );
+
+		[ $html ] = $this->executeSpecialPage( '', new FauxRequest( $query ), 'qqx', $handler );
+		$this->assertStringNotContainsString( 'Unrelated queued request', $html );
+		if ( $matches ) {
+			$this->assertStringContainsString( 'Filtered first', $html );
+			$this->assertStringContainsString( 'Filtered second', $html );
+			$this->assertStringContainsString( "emailRequestId=$id", $html );
+			$this->assertStringNotContainsString( 'filtered%40example.org', $html );
+		} else {
+			$this->assertStringNotContainsString( 'Filtered first', $html );
+		}
+	}
+
+	public static function provideEmailFilter(): array {
+		return [ 'matching requests' => [ true ], 'no matching request' => [ false ] ];
 	}
 
 	public function testLoggedOutRequestShowsAnonymousRequester(): void {
@@ -470,6 +532,33 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 			'delivery failed' => [ true, false ],
 			'rolled back' => [ false, true ],
 		];
+	}
+
+	public function testPasswordIssuanceFailureLeavesApprovalMailRetryable(): void {
+		$services = $this->getServiceContainer();
+		$creator = $this->getMockBuilder( AccountCreator::class )
+			->setConstructorArgs( [
+				$services->getAuthManager(),
+				RequestContext::getMain(),
+				$services->getUserFactory(),
+			] )
+			->onlyMethods( [ 'reissueTemporaryPassword' ] )
+			->getMock();
+		$creator->expects( $this->once() )->method( 'reissueTemporaryPassword' )
+			->willReturn( Status::newFatal( 'authmanager-change-not-supported' ) );
+		$this->setService( 'MirahezeRequestsAccountCreator', $creator );
+		$mailer = $this->createMock( AccountRequestMailer::class );
+		$mailer->expects( $this->never() )->method( 'sendApproved' );
+		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
+
+		$name = 'Password issuance failure';
+		$id = $this->newRequest( $name, 'password-failure@example.org', true, null );
+		$this->executeAsHandler( (string)$id, [ 'wpsubmit-accept' => 1 ] );
+
+		$this->assertTrue( $services->getUserFactory()->newFromName( $name )->isRegistered() );
+		$this->assertSame( MirahezeRequestsStatus::MailFailed->value, $this->getRequestStatus( $id ) );
+		$html = $this->executeAsHandler( (string)$id, [] );
+		$this->assertStringContainsString( 'submit-resend', $html );
 	}
 
 	public function testFailedMailCanBeRetriedUntilDeliverySucceeds(): void {

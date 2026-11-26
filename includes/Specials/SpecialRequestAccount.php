@@ -242,14 +242,13 @@ class SpecialRequestAccount extends SpecialRequest {
 			return Status::newFatal( 'actionthrottledtext' );
 		}
 
-		$email = trim( $data['email'] );
-
 		if ( $this->requestManager->hasOpenRequestForName( $this->validatedName['name'] ) ) {
 			return Status::newFatal( 'requestaccount-error-duplicate-username' );
 		}
 
-		if ( $this->requestManager->hasActiveRequestForEmail( $email ) ) {
-			return Status::newFatal( 'requestaccount-error-duplicate-email' );
+		$this->submittedEmail = trim( $data['email'] );
+		if ( $this->requestManager->hasActiveRequestForEmail( $this->submittedEmail ) ) {
+			return Status::newGood();
 		}
 
 		[ $id, $token ] = $this->requestManager->createUnconfirmed(
@@ -261,21 +260,19 @@ class SpecialRequestAccount extends SpecialRequest {
 		$this->requestManager->getById( $id );
 		if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
 			$this->requestManager->deleteUnconfirmed( $id );
-			return Status::newFatal( 'requestaccount-error-email-send' );
+			// A different response would still reveal whether the address has an active request.
+			return Status::newGood();
 		}
 
 		DeferredUpdates::addCallableUpdate( function () {
 			$this->requestManager->purgeExpiredData();
 		} );
 
-		$this->submittedEmail = $email;
-
 		return Status::newGood();
 	}
 
 	/** @inheritDoc */
 	public function onSuccess(): void {
-		// nothing is submitted until the link is confirmed
 		$this->getOutput()->addHTML( Html::noticeBox(
 			$this->msg( 'requestaccount-success' )
 				->plaintextParams( $this->submittedEmail ?? '' )

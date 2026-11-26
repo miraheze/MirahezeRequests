@@ -59,8 +59,8 @@ abstract class RequestQueue extends SpecialPage {
 			}
 		}
 
-		// viewing still works while read-only
-		if ( $this->getRequest()->wasPosted() ) {
+		// Reads, including a posted filter, still work while read-only.
+		if ( $subPage && $this->getRequest()->wasPosted() ) {
 			$this->checkReadOnly();
 		}
 
@@ -142,7 +142,7 @@ abstract class RequestQueue extends SpecialPage {
 		];
 
 		$form = HTMLForm::factory( 'ooui', $descriptor, $this->getContext() );
-		$form->setMethod( 'get' )
+		$form->setMethod( 'post' )
 			->setWrapperLegendMsg( 'mirahezerequests-filter-legend' )
 			->setSubmitTextMsg( 'search' )
 			->prepareForm()

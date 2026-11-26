@@ -4,6 +4,9 @@ declare( strict_types = 1 );
 
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
+use MediaWiki\Auth\AuthenticationResponse;
+use MediaWiki\Auth\AuthManager;
+use MediaWiki\Auth\PasswordAuthenticationRequest;
 use MediaWiki\Config\SiteConfiguration;
 use MediaWiki\Exception\ErrorPageError;
 use MediaWiki\Extension\CentralAuth\Config\CAMainConfigNames;
@@ -125,16 +128,18 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 	public function testSharedQueueReturnsToMetaWithFilters(): void {
 		$this->pageName = 'RequestAccountQueue';
 		$this->configureDomain( true );
+		$manager = $this->getServiceContainer()->get( 'RequestAccountManager' );
+		$id = $this->newConfirmedRequest( $manager, 'SUL3 queue filter' );
 		[ , $response ] = $this->executeSpecialPage(
 			'',
-			new FauxRequest( [ 'type' => 'closed', 'email' => 'test@example.org' ] ),
+			new FauxRequest( [ 'type' => 'closed', 'email' => 'sul3@example.org' ] ),
 			'qqx',
 			$this->getTestSysop()->getAuthority()
 		);
 		$url = $response->getHeader( 'Location' );
 		$this->assertStringStartsWith( 'https://meta.example.org/wiki/Special:RequestAccountQueue?', $url );
 		parse_str( parse_url( $url, PHP_URL_QUERY ), $query );
-		$this->assertSame( [ 'type' => 'closed', 'email' => 'test@example.org' ], $query );
+		$this->assertSame( [ 'type' => 'closed', 'emailRequestId' => (string)$id ], $query );
 	}
 
 	public function testSharedDomainApprovalCreatesGlobalAccountAndReturnsToMeta(): void {
@@ -142,11 +147,13 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		// Exercise CentralAuth's providers instead of the generic PHPUnit provider configuration.
 		$this->overrideConfigValue( MainConfigNames::AuthManagerConfig, null );
 		$this->configureDomain( true );
-		$sent = false;
+		$sentPassword = null;
 		$mailer = $this->createMock( AccountRequestMailer::class );
 		$mailer->expects( $this->once() )->method( 'sendApproved' )
-			->willReturnCallback( static function () use ( &$sent ) {
-				$sent = true;
+			->willReturnCallback( static function (
+				RequestAccountManager $request, string $password
+			) use ( &$sentPassword ): StatusValue {
+				$sentPassword = $password;
 				return StatusValue::newGood();
 			} );
 		$this->setService( 'MirahezeRequestsAccountRequestMailer', $mailer );
@@ -161,9 +168,9 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		[ , $response ] = $this->executeSpecialPage( (string)$id, $request, 'qqx', $handler );
 		$manager->getById( $id );
 		$this->assertSame( MirahezeRequestsStatus::Sending->value, $manager->getStatus() );
-		$this->assertFalse( $sent, 'Uncommitted global accounts must not be mailed' );
+		$this->assertNull( $sentPassword, 'Uncommitted global accounts must not be mailed' );
 		$lbFactory->commitPrimaryChanges( __METHOD__ );
-		$this->assertTrue( $sent );
+		$this->assertIsString( $sentPassword );
 		$manager->getById( $id );
 		$this->assertSame( MirahezeRequestsStatus::Complete->value, $manager->getStatus() );
 		$centralUser = CentralAuthUser::getPrimaryInstanceByName( $name );
@@ -175,6 +182,16 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 		$this->assertSame(
 			'https://meta.example.org/wiki/Special:RequestAccountQueue', $response->getHeader( 'Location' )
 		);
+
+		$login = new PasswordAuthenticationRequest();
+		$login->action = AuthManager::ACTION_LOGIN;
+		$login->username = $name;
+		$login->password = $sentPassword;
+		$authResponse = $this->getServiceContainer()->getAuthManager()->beginAuthentication(
+			[ $login ], 'https://meta.example.org/'
+		);
+		$this->assertSame( AuthenticationResponse::UI, $authResponse->status );
+		$this->assertSame( 'resetpass-temp-emailed', $authResponse->message?->getKey() );
 	}
 
 	public function testSharedDomainApprovalRequiresValidCsrfToken(): void {
