@@ -143,6 +143,31 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$this->assertStringContainsString( 'blocked@example.org', $html );
 	}
 
+	public function testBlockedHandlerCanOnlyViewOwnRequestWithoutHandlerFields(): void {
+		$this->overrideConfigValue( 'MirahezeRequestsIPVisibilityGroups', [ 'sysop' ] );
+		$handler = $this->getMutableTestUser( [ 'sysop' ] )->getUser();
+		$ownId = $this->newRequest( 'Own handler request', 'own@example.org', true, $handler, '203.0.113.73' );
+		$otherId = $this->newRequest( 'Other request', 'other@example.org', true, null );
+
+		$status = $this->getServiceContainer()->getBlockUserFactory()
+			->newBlockUser( $handler->getName(), $this->getTestSysop()->getUser(), 'indefinite', 'Test block' )
+			->placeBlock();
+		$this->assertStatusGood( $status );
+		$handler->clearInstanceCache();
+		$this->assertTrue( $handler->isAllowed( 'handle-requestaccount' ) );
+		$this->assertTrue( $handler->getBlock()?->isSitewide() );
+
+		[ $html ] = $this->executeSpecialPage( (string)$otherId, new FauxRequest(), 'qqx', $handler );
+		$this->assertStringContainsString( '(mirahezerequests-nopermission)', $html );
+		$this->assertStringNotContainsString( 'other@example.org', $html );
+
+		[ $html ] = $this->executeSpecialPage( (string)$ownId, new FauxRequest(), 'qqx', $handler );
+		$this->assertStringContainsString( 'own@example.org', $html );
+		$this->assertStringNotContainsString( '203.0.113.73', $html );
+		$this->assertStringNotContainsString( 'submit-accept', $html );
+		$this->assertStringNotContainsString( 'requestaccount-label-same-email', $html );
+	}
+
 	/** @dataProvider provideHandlingPost */
 	public function testRequesterHandlingPostsAreRejected( array $postData ): void {
 		$mailer = $this->createMock( AccountRequestMailer::class );
@@ -218,7 +243,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		[ $html ] = $this->executeSpecialPage(
 			'',
 			new FauxRequest( [
-				'email' => 'allview@example.org',
+				'emailRequestId' => $closedId,
 				'status' => '*',
 				'type' => 'all',
 			] ),
@@ -296,6 +321,40 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 
 		$this->assertStringContainsString( 'zero@example.org', $html );
 		$this->assertStringNotContainsString( 'other@example.org', $html );
+	}
+
+	/** @dataProvider provideEmailFilter */
+	public function testEmailFilterUsesOnlyARequestIdInTheUrl( bool $matches ): void {
+		$email = 'filtered@example.org';
+		$id = $this->newRequest( 'Filtered first', $email, true, null );
+		$this->newRequest( 'Filtered second', $email, true, null );
+		$this->newRequest( 'Unrelated queued request', 'other@example.org', true, null );
+		$handler = $this->getTestSysop()->getAuthority();
+		[ , $response ] = $this->executeSpecialPage( '', new FauxRequest( [
+			'email' => $matches ? $email : 'missing@example.org',
+			'type' => 'open',
+		], true ), 'qqx', $handler );
+
+		$url = $response->getHeader( 'Location' );
+		$this->assertIsString( $url );
+		parse_str( parse_url( $url, PHP_URL_QUERY ) ?? '', $query );
+		unset( $query['title'] );
+		$this->assertSame( [ 'type' => 'open', 'emailRequestId' => $matches ? (string)$id : '0' ], $query );
+
+		[ $html ] = $this->executeSpecialPage( '', new FauxRequest( $query ), 'qqx', $handler );
+		$this->assertStringNotContainsString( 'Unrelated queued request', $html );
+		if ( $matches ) {
+			$this->assertStringContainsString( 'Filtered first', $html );
+			$this->assertStringContainsString( 'Filtered second', $html );
+			$this->assertStringContainsString( "emailRequestId=$id", $html );
+			$this->assertStringNotContainsString( 'filtered%40example.org', $html );
+		} else {
+			$this->assertStringNotContainsString( 'Filtered first', $html );
+		}
+	}
+
+	public static function provideEmailFilter(): array {
+		return [ 'matching requests' => [ true ], 'no matching request' => [ false ] ];
 	}
 
 	public function testLoggedOutRequestShowsAnonymousRequester(): void {

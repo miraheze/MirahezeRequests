@@ -67,7 +67,22 @@ class SpecialRequestAccountQueue extends RequestQueue {
 
 	/** @inheritDoc */
 	protected function showFilterAndPager(): void {
-		if ( !$this->accountRequestRouter->ensureQueueDomain( $this ) ) {
+		$request = $this->getRequest();
+		$hasLegacyEmailFilter = !$request->wasPosted() && $request->getCheck( 'email' );
+		if ( !$hasLegacyEmailFilter && !$this->accountRequestRouter->ensureQueueDomain( $this ) ) {
+			return;
+		}
+
+		if ( $request->wasPosted() || $hasLegacyEmailFilter ) {
+			// Search and paging URLs must keep the filter without carrying the address itself.
+			$query = $request->getValues(
+				'type', 'username', 'requester', 'status', 'sort', 'asc', 'desc', 'offset', 'dir', 'limit', 'uselang'
+			);
+			$email = $request->getText( 'email' );
+			if ( $email !== '' ) {
+				$query['emailRequestId'] = $this->requestManager->findQueuedRequestIdByEmail( $email ) ?? 0;
+			}
+			$this->getOutput()->redirect( $this->accountRequestRouter->getQueueURL( $query ) );
 			return;
 		}
 
@@ -88,8 +103,19 @@ class SpecialRequestAccountQueue extends RequestQueue {
 			'requester' => $req->getText( 'requester' ),
 			'status' => in_array( $status, $this->getStatusesForCurrentTab(), true ) ? $status : '',
 			'username' => $req->getText( 'username' ),
-			'email' => $req->getText( 'email' ),
+			'email' => $this->getEmailFilter(),
 		];
+	}
+
+	/** @return ?string Empty for no filter, null if the requested filter has no matching record. */
+	private function getEmailFilter(): ?string {
+		$request = $this->getRequest();
+		if ( !$request->getCheck( 'emailRequestId' ) ) {
+			return '';
+		}
+
+		$this->requestManager->getById( $request->getInt( 'emailRequestId' ) );
+		return $this->requestManager->isInQueue() ? $this->requestManager->getEmail() : null;
 	}
 
 	/** @return string[] */
@@ -125,7 +151,7 @@ class SpecialRequestAccountQueue extends RequestQueue {
 				'type' => 'text',
 				'name' => 'email',
 				'label-message' => 'requestaccount-email-short',
-				'default' => $filters['email'],
+				'default' => $filters['email'] ?? '',
 			],
 			'requester' => [
 				'type' => 'user',

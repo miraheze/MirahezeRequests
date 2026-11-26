@@ -158,7 +158,7 @@ class RequestAccountViewer extends RequestViewer {
 			],
 		];
 
-		$canSeeIp = $this->requestManager->canSeeIp( $this->context->getUser() );
+		$canSeeIp = $isHandler && $this->requestManager->canSeeIp( $this->context->getUser() );
 		if ( $canSeeIp ) {
 			$formDescriptor['ip'] = [
 				'label-message' => 'mirahezerequests-label-ip',
@@ -202,7 +202,8 @@ class RequestAccountViewer extends RequestViewer {
 	}
 
 	private function isHandler(): bool {
-		return $this->context->getAuthority()->isAllowed( 'handle-requestaccount' );
+		return $this->context->getAuthority()->isAllowed( 'handle-requestaccount' ) &&
+			!$this->context->getUser()->getBlock()?->isSitewide();
 	}
 
 	private function canRetryApprovalMail(): bool {
@@ -241,7 +242,7 @@ class RequestAccountViewer extends RequestViewer {
 		) {
 			$info .= Html::warningBox(
 				$this->context->msg( 'requestaccount-warning-not-creatable' )
-					->params( $this->requestManager->getUsername() )
+					->plaintextParams( $this->requestManager->getUsername() )
 					->params( $this->statusFormatter->getMessage( $creatable ) )
 					->parse()
 			);
@@ -372,7 +373,7 @@ class RequestAccountViewer extends RequestViewer {
 				SpecialPage::getTitleFor( 'RequestAccountQueue' ),
 				$this->context->msg( 'requestaccount-same-email-all' )->text(),
 				[],
-				[ 'email' => $this->requestManager->getEmail(), 'status' => '*', 'type' => 'all' ]
+				[ 'emailRequestId' => $this->requestManager->getId(), 'status' => '*', 'type' => 'all' ]
 			);
 		}
 

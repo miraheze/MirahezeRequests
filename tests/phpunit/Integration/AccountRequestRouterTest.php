@@ -125,16 +125,18 @@ class AccountRequestRouterTest extends SpecialPageTestBase {
 	public function testSharedQueueReturnsToMetaWithFilters(): void {
 		$this->pageName = 'RequestAccountQueue';
 		$this->configureDomain( true );
+		$manager = $this->getServiceContainer()->get( 'RequestAccountManager' );
+		$id = $this->newConfirmedRequest( $manager, 'SUL3 queue filter' );
 		[ , $response ] = $this->executeSpecialPage(
 			'',
-			new FauxRequest( [ 'type' => 'closed', 'email' => 'test@example.org' ] ),
+			new FauxRequest( [ 'type' => 'closed', 'email' => 'sul3@example.org' ] ),
 			'qqx',
 			$this->getTestSysop()->getAuthority()
 		);
 		$url = $response->getHeader( 'Location' );
 		$this->assertStringStartsWith( 'https://meta.example.org/wiki/Special:RequestAccountQueue?', $url );
 		parse_str( parse_url( $url, PHP_URL_QUERY ), $query );
-		$this->assertSame( [ 'type' => 'closed', 'email' => 'test@example.org' ], $query );
+		$this->assertSame( [ 'type' => 'closed', 'emailRequestId' => (string)$id ], $query );
 	}
 
 	public function testSharedDomainApprovalCreatesGlobalAccountAndReturnsToMeta(): void {

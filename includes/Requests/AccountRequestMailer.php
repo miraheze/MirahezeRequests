@@ -61,6 +61,10 @@ class AccountRequestMailer {
 					SpecialPage::getTitleFor( 'Userlogin' )->getCanonicalURL()
 				)
 				->durationParams( $this->options->get( MainConfigNames::NewPasswordExpiry ) )
+				->inLanguage( $language )->text(),
+			// The CC address belongs to the requester account and can change after confirmation
+			$this->messageLocalizer->msg( 'requestaccount-created-email-cc-text' )
+				->plaintextParams( $request->getUsername() )
 				->inLanguage( $language )->text()
 		);
 	}
@@ -73,19 +77,25 @@ class AccountRequestMailer {
 			$this->messageLocalizer->msg( 'requestaccount-declined-email-title' )->inLanguage( $language )->text(),
 			$this->messageLocalizer->msg( 'requestaccount-declined-email-text' )
 				->plaintextParams( $reason )
-				->inLanguage( $language )->text()
+				->inLanguage( $language )->text(),
+			ccBody: null
 		);
 	}
 
 	/**
 	 * @return StatusValue Of the mail to the requested address; the copy may fail on its own
 	 */
-	private function sendDecision( RequestAccountManager $request, string $subject, string $body ): StatusValue {
+	private function sendDecision(
+		RequestAccountManager $request,
+		string $subject,
+		string $body,
+		?string $ccBody
+	): StatusValue {
 		$status = $this->send( new MailAddress( $request->getEmail(), $request->getUsername() ), $subject, $body );
 
 		$ccEmail = $request->getRequesterCcEmail();
 		if ( $ccEmail && $ccEmail !== $request->getEmail() ) {
-			$this->send( new MailAddress( $ccEmail ), $subject, $body );
+			$this->send( new MailAddress( $ccEmail ), $subject, $ccBody ?? $body );
 		}
 
 		return $status;

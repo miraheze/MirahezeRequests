@@ -24,7 +24,7 @@ class RequestAccountQueuePager extends RequestQueuePager {
 		string $status,
 		string $type,
 		private readonly string $username,
-		private readonly string $email,
+		private readonly ?string $email,
 		private readonly bool $canSeeIp
 	) {
 		parent::__construct( $context, $dbService, $linkRenderer, $userFactory, $requester, $status, $type );
@@ -152,7 +152,9 @@ class RequestAccountQueuePager extends RequestQueuePager {
 			$conds['request_username'] = $this->username;
 		}
 
-		if ( $this->email ) {
+		if ( $this->email === null ) {
+			$conds['request_id'] = 0;
+		} elseif ( $this->email !== '' ) {
 			$conds['request_email'] = $this->email;
 		}
 

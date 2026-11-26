@@ -262,6 +262,20 @@ class RequestAccountManager extends RequestManager {
 			->fetchField();
 	}
 
+	public function findQueuedRequestIdByEmail( string $email ): ?int {
+		$dbr = $this->dbService->getDbr();
+		$id = $dbr->newSelectQueryBuilder()
+			->select( 'request_id' )
+			->from( self::TABLE )
+			->where( [ 'request_email' => $email ] )
+			->andWhere( $dbr->expr( 'request_status', '!=', MirahezeRequestsStatus::Unconfirmed->value ) )
+			->orderBy( 'request_id' )
+			->caller( __METHOD__ )
+			->fetchField();
+
+		return $id === false ? null : (int)$id;
+	}
+
 	/**
 	 * Other requests with the same address as the loaded one, newest first.
 	 *
