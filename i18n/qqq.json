@@ -106,7 +106,7 @@
 	"requestaccount-same-email-none": "Shown when no other request used the same email address.\n{{Identical|None}}",
 	"requestaccount-section-details": "Tab/section heading for the read-only details of an account request.",
 	"requestaccount-section-handling": "Tab/section heading for the controls used by handlers to accept or decline an account request.",
-	"requestaccount-success": "Shown after submitting the request form. The same instructions are shown whether or not a new confirmation email was sent.\n\nParameters:\n* $1 - the email address entered in the form\n* $2 - the validity period of the confirmation link, e.g. \"1 day\"",
+	"requestaccount-success": "Shown after submitting the request form. The notice explains that a request is incomplete until confirmed by email. The same instructions are shown whether or not a new confirmation email was sent.\n\nParameters:\n* $1 - the email address entered in the form\n* $2 - the validity period of the confirmation link, e.g. \"1 day\"",
 	"requestaccount-username": "Field label on the account request form asking for the desired username.",
 	"requestaccount-username-help": "Help text shown under the username field on the account request form.",
 	"requestaccount-username-invalid": "Validation error shown when the requested username isn't a valid username (e.g. contains disallowed characters).",

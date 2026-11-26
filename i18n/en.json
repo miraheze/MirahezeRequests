@@ -106,7 +106,7 @@
 	"requestaccount-same-email-none": "None",
 	"requestaccount-section-details": "Details",
 	"requestaccount-section-handling": "Handle request",
-	"requestaccount-success": "If you receive a confirmation email at $1, open its link and press the \"Confirm\" button to submit your request for review. Confirmation links expire after $2. Please check your spam folder if you cannot find the email.\n\nIf you have already confirmed a request that is awaiting review, you do not need to submit it again.",
+	"requestaccount-success": "'''Your request is not yet complete if you have not confirmed it by email.''' If you receive a confirmation email at $1, open its link and press the \"Confirm\" button to submit your request for review. Confirmation links expire after $2. Please check your spam folder if you cannot find the email.\n\nIf you have already confirmed a request that is awaiting review, you do not need to submit it again.",
 	"requestaccount-username": "What username do you wish your account to have?",
 	"requestaccount-username-help": "Please tell us what username you wish for your user account.",
 	"requestaccount-username-invalid": "This is not a valid username. Please choose a different username.",
