@@ -13,6 +13,7 @@ use MediaWiki\Auth\UsernameAuthenticationRequest;
 use MediaWiki\Extension\AntiSpoof\AntiSpoofAuthenticationRequest;
 use MediaWiki\Extension\TitleBlacklist\TitleBlacklistAuthenticationRequest;
 use MediaWiki\Language\MessageLocalizer;
+use MediaWiki\Permissions\PermissionManager;
 use MediaWiki\Request\WebRequest;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
@@ -23,18 +24,12 @@ use Wikimedia\Rdbms\IDBAccessObject;
 /** Creates accounts through AuthManager, so CentralAuth makes them global. */
 class AccountCreator {
 
-	private bool $creating = false;
-
 	public function __construct(
 		private readonly AuthManager $authManager,
 		private readonly MessageLocalizer $messageLocalizer,
+		private readonly PermissionManager $permissionManager,
 		private readonly UserFactory $userFactory,
 	) {
-	}
-
-	/** Whether a request's account is being created, so hooks skip checks the requester passed. */
-	public function isCreating(): bool {
-		return $this->creating;
 	}
 
 	/**
@@ -157,11 +152,8 @@ class AccountCreator {
 		array $authRequests,
 		string $returnToUrl
 	): AuthenticationResponse {
-		$this->creating = true;
-		try {
-			return $this->authManager->beginAccountCreation( $handler, $authRequests, $returnToUrl );
-		} finally {
-			$this->creating = false;
-		}
+		// @phan-suppress-next-line PhanUnusedVariable
+		$scope = $this->permissionManager->addTemporaryUserRights( $handler, [ 'noratelimit', 'skipcaptcha' ] );
+		return $this->authManager->beginAccountCreation( $handler, $authRequests, $returnToUrl );
 	}
 }

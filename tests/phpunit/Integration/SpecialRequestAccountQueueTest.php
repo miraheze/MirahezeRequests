@@ -540,6 +540,7 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 			->setConstructorArgs( [
 				$services->getAuthManager(),
 				RequestContext::getMain(),
+				$services->getPermissionManager(),
 				$services->getUserFactory(),
 			] )
 			->onlyMethods( [ 'reissueTemporaryPassword' ] )

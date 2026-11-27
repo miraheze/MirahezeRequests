@@ -5,34 +5,16 @@ declare( strict_types = 1 );
 namespace Miraheze\MirahezeRequests\Hooks\Handlers;
 
 use MediaWiki\Config\Config;
-use MediaWiki\Extension\ConfirmEdit\Hooks\ConfirmEditCanUserSkipCaptchaHook;
 use MediaWiki\Extension\ConfirmEdit\Hooks\ConfirmEditTriggersCaptchaHook;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\User\User;
-use Miraheze\MirahezeRequests\Requests\AccountCreator;
 
-class ConfirmEdit implements
-	ConfirmEditCanUserSkipCaptchaHook,
-	ConfirmEditTriggersCaptchaHook
-{
+class ConfirmEdit implements ConfirmEditTriggersCaptchaHook {
 
 	public const string TRIGGER = 'requestaccount';
 
 	public function __construct(
 		private readonly Config $config,
-		private readonly AccountCreator $accountCreator,
 	) {
-	}
-
-	/**
-	 * @inheritDoc
-	 * @param User $user @phan-unused-param
-	 */
-	public function onConfirmEditCanUserSkipCaptcha( $user, &$result ): void {
-		// the requester already solved one, and the handler can't
-		if ( $this->accountCreator->isCreating() ) {
-			$result = true;
-		}
 	}
 
 	/**
