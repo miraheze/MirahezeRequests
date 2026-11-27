@@ -27,34 +27,42 @@ class AccountRequestMailer {
 
 	public function __construct(
 		private readonly IEmailer $emailer,
-		private readonly MessageLocalizer $messageLocalizer,
 		private readonly ServiceOptions $options,
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 	}
 
-	public function sendConfirmation( RequestAccountManager $request, string $token ): StatusValue {
+	public function sendConfirmation(
+		RequestAccountManager $request,
+		string $token,
+		MessageLocalizer $messageLocalizer
+	): StatusValue {
 		$language = $request->getLanguage();
 		$url = SpecialPage::getTitleFor( 'RequestAccount', "confirm/$token" )->getCanonicalURL();
 
 		// not copied: confirming proves the requested address only
 		return $this->send(
 			new MailAddress( $request->getEmail(), $request->getUsername() ),
-			$this->messageLocalizer->msg( 'requestaccount-confirm-email-title' )->inLanguage( $language )->text(),
-			$this->messageLocalizer->msg( 'requestaccount-confirm-email-text' )
+			$messageLocalizer->msg( 'requestaccount-confirm-email-title' )->inLanguage( $language )->text(),
+			$messageLocalizer->msg( 'requestaccount-confirm-email-text' )
 				->plaintextParams( $request->getUsername(), $url, $request->getIp() )
 				->durationParams( $this->options->get( ConfigNames::AccountConfirmationExpiry ) )
-				->inLanguage( $language )->text()
+				->inLanguage( $language )->text(),
+			$messageLocalizer,
 		);
 	}
 
-	public function sendApproved( RequestAccountManager $request, string $temporaryPassword ): StatusValue {
+	public function sendApproved(
+		RequestAccountManager $request,
+		string $temporaryPassword,
+		MessageLocalizer $messageLocalizer,
+	): StatusValue {
 		$language = $request->getLanguage();
 
 		return $this->sendDecision(
 			$request,
-			$this->messageLocalizer->msg( 'requestaccount-created-email-title' )->inLanguage( $language )->text(),
-			$this->messageLocalizer->msg( 'requestaccount-created-email-text' )
+			$messageLocalizer->msg( 'requestaccount-created-email-title' )->inLanguage( $language )->text(),
+			$messageLocalizer->msg( 'requestaccount-created-email-text' )
 				->plaintextParams(
 					$request->getUsername(),
 					$temporaryPassword,
@@ -63,22 +71,28 @@ class AccountRequestMailer {
 				->durationParams( $this->options->get( MainConfigNames::NewPasswordExpiry ) )
 				->inLanguage( $language )->text(),
 			// The CC address belongs to the requester account and can change after confirmation
-			$this->messageLocalizer->msg( 'requestaccount-created-email-cc-text' )
+			$messageLocalizer->msg( 'requestaccount-created-email-cc-text' )
 				->plaintextParams( $request->getUsername() )
-				->inLanguage( $language )->text()
+				->inLanguage( $language )->text(),
+			messageLocalizer: $messageLocalizer,
 		);
 	}
 
-	public function sendDeclined( RequestAccountManager $request, string $reason ): StatusValue {
+	public function sendDeclined(
+		RequestAccountManager $request,
+		string $reason,
+		MessageLocalizer $messageLocalizer,
+	): StatusValue {
 		$language = $request->getLanguage();
 
 		return $this->sendDecision(
 			$request,
-			$this->messageLocalizer->msg( 'requestaccount-declined-email-title' )->inLanguage( $language )->text(),
-			$this->messageLocalizer->msg( 'requestaccount-declined-email-text' )
+			$messageLocalizer->msg( 'requestaccount-declined-email-title' )->inLanguage( $language )->text(),
+			$messageLocalizer->msg( 'requestaccount-declined-email-text' )
 				->plaintextParams( $reason )
 				->inLanguage( $language )->text(),
-			ccBody: null
+			ccBody: null,
+			messageLocalizer: $messageLocalizer
 		);
 	}
 
@@ -89,23 +103,31 @@ class AccountRequestMailer {
 		RequestAccountManager $request,
 		string $subject,
 		string $body,
-		?string $ccBody
+		?string $ccBody,
+		MessageLocalizer $messageLocalizer,
 	): StatusValue {
-		$status = $this->send( new MailAddress( $request->getEmail(), $request->getUsername() ), $subject, $body );
+		$status = $this->send(
+			new MailAddress( $request->getEmail(), $request->getUsername() ), $subject, $body, $messageLocalizer
+		);
 
 		$ccEmail = $request->getRequesterCcEmail();
 		if ( $ccEmail && $ccEmail !== $request->getEmail() ) {
-			$this->send( new MailAddress( $ccEmail ), $subject, $ccBody ?? $body );
+			$this->send( new MailAddress( $ccEmail ), $subject, $ccBody ?? $body, $messageLocalizer );
 		}
 
 		return $status;
 	}
 
-	private function send( MailAddress $to, string $subject, string $body ): StatusValue {
+	private function send(
+		MailAddress $to,
+		string $subject,
+		string $body,
+		MessageLocalizer $messageLocalizer,
+	): StatusValue {
 		// $wgPasswordSender, as the system user has no email address
 		$from = new MailAddress(
 			$this->options->get( MainConfigNames::PasswordSender ),
-			$this->messageLocalizer->msg( 'emailsender' )->inContentLanguage()->text()
+			$messageLocalizer->msg( 'emailsender' )->inContentLanguage()->text()
 		);
 
 		$status = $this->emailer->send( [ $to ], $from, $subject, $body );

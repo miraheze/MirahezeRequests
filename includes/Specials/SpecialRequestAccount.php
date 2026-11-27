@@ -273,7 +273,7 @@ class SpecialRequestAccount extends SpecialRequest {
 
 	private function sendConfirmation( int $id, string $token ): void {
 		$this->requestManager->getById( $id );
-		if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token )->isGood() ) {
+		if ( !$this->requestMailer->sendConfirmation( $this->requestManager, $token, $this )->isGood() ) {
 			$this->requestManager->deleteUnconfirmed( $id );
 			return;
 		}

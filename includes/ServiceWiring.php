@@ -30,7 +30,6 @@ return [
 	'MirahezeRequestsAccountCreator' => static function ( MediaWikiServices $services ): AccountCreator {
 		return new AccountCreator(
 			$services->getAuthManager(),
-			RequestContext::getMain(),
 			$services->getPermissionManager(),
 			$services->getUserFactory(),
 		);
@@ -38,7 +37,6 @@ return [
 	'MirahezeRequestsAccountRequestMailer' => static function ( MediaWikiServices $services ): AccountRequestMailer {
 		return new AccountRequestMailer(
 			$services->getEmailer(),
-			RequestContext::getMain(),
 			new ServiceOptions(
 				AccountRequestMailer::CONSTRUCTOR_OPTIONS,
 				$services->getMainConfig()
