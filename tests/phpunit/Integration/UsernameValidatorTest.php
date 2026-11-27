@@ -50,16 +50,15 @@ class UsernameValidatorTest extends MediaWikiIntegrationTestCase {
 		$status = $this->validate( 'fine name' );
 
 		$this->assertStatusGood( $status );
-		$this->assertSame( [ 'name' => 'Fine name', 'warnings' => [] ], $status->getValue() );
+		$this->assertSame( 'Fine name', $status->getValue() );
 	}
 
 	public function testAcceptsTitleBlacklistedNameWithWarning(): void {
 		$this->enableTitleBlacklist();
 		$status = $this->validate( 'Forbidden Name' );
 
-		$this->assertStatusGood( $status );
-		$this->assertSame( 'Forbidden Name', $status->getValue()['name'] );
-		$this->assertCount( 1, $status->getValue()['warnings'] );
+		$this->assertSame( 'Forbidden Name', $status->getValue() );
+		$this->assertCount( 1, $status->getMessages( 'warning' ) );
 	}
 
 	public function testRefusesInvalidName(): void {

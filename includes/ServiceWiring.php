@@ -55,7 +55,6 @@ return [
 		return new UsernameValidator(
 			$services->getAuthManager(),
 			$services->getPermissionManager(),
-			$services->getFormatterFactory()->getStatusFormatter( RequestContext::getMain() ),
 			$services->getUserNameUtils(),
 		);
 	},
