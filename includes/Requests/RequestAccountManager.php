@@ -395,12 +395,14 @@ class RequestAccountManager extends RequestManager {
 	}
 
 	/**
-	 * @return string[] HTML of each username check the name failed at submission
+	 * @return StatusValue With warnings from the failed username checks during submission
 	 */
-	public function getNameWarnings(): array {
-		// keep requests viewable even with broken JSON
+	public function getNameStatus(): StatusValue {
 		$warnings = json_decode( $this->row->request_name_warnings ?? '[]', true );
-		return is_array( $warnings ) ? $warnings : [];
+		if ( !$warnings || !is_array( $warnings ) ) {
+			return StatusValue::newGood();
+		}
+		return StatusValue::newFromJsonArray( [ 'errors' => $warnings ] );
 	}
 
 	public function getEmail(): string {

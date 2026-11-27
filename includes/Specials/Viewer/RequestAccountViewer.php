@@ -227,9 +227,11 @@ class RequestAccountViewer extends RequestViewer {
 				);
 		}
 
-		foreach ( $this->requestManager->getNameWarnings() as $nameWarning ) {
+		$nameStatus = $this->requestManager->getNameStatus();
+		foreach ( $nameStatus->getMessages( 'warning' ) as $nameWarning ) {
 			$info .= Html::warningBox(
-				$this->context->msg( 'requestaccount-warning-name-check' )->parse() . $nameWarning
+				$this->context->msg( 'requestaccount-warning-name-check' )->parse() .
+					$this->context->msg( $nameWarning )->parse()
 			);
 		}
 
@@ -239,7 +241,7 @@ class RequestAccountViewer extends RequestViewer {
 			!$creatable->isGood() &&
 			(
 				UsernameValidator::getOverrideRight( $creatable ) === null ||
-				!$this->requestManager->getNameWarnings()
+				$nameStatus->isGood()
 			)
 		) {
 			$info .= Html::warningBox(

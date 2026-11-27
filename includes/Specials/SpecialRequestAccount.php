@@ -45,11 +45,11 @@ class SpecialRequestAccount extends SpecialRequest {
 	private ?string $submittedEmail = null;
 
 	/**
-	 * Last validated name, so submitting doesn't rerun AuthManager.
+	 * Last name validation result, so submitting doesn't rerun AuthManager.
 	 *
-	 * @var ?array{name:string,warnings:string[]}
+	 * @var ?StatusValue<string|null>
 	 */
-	private ?array $validatedName = null;
+	private ?StatusValue $validatedNameResult = null;
 
 	public function __construct(
 		MirahezeRequestsDatabaseService $dbService,
@@ -201,11 +201,11 @@ class SpecialRequestAccount extends SpecialRequest {
 		}
 
 		$status = $this->usernameValidator->validate( $username, $this->getUser() );
-		if ( !$status->isGood() ) {
+		if ( !$status->isOK() ) {
 			return $status;
 		}
 
-		$this->validatedName = $status->getValue();
+		$this->validatedNameResult = $status;
 		return true;
 	}
 
@@ -214,8 +214,8 @@ class SpecialRequestAccount extends SpecialRequest {
 		return [
 			'request_timestamp' => $timestamp,
 			'request_email' => trim( $data['email'] ),
-			'request_username' => $this->validatedName['name'],
-			'request_name_warnings' => json_encode( $this->validatedName['warnings'] ),
+			'request_username' => $this->validatedNameResult->getValue(),
+			'request_name_warnings' => json_encode( $this->validatedNameResult->toJsonArray()['errors'] ?? [] ),
 			'request_reason' => $data['reason'],
 			'request_globalblock_reason' => $data['reason'] === 'globalblock' ? $data['globalblock-reason'] : null,
 			'request_explanation' => $data['explanation'],
@@ -242,7 +242,7 @@ class SpecialRequestAccount extends SpecialRequest {
 			return Status::newFatal( 'actionthrottledtext' );
 		}
 
-		if ( $this->requestManager->hasOpenRequestForName( $this->validatedName['name'] ) ) {
+		if ( $this->requestManager->hasOpenRequestForName( $this->validatedNameResult->getValue() ) ) {
 			return Status::newFatal( 'requestaccount-error-duplicate-username' );
 		}
 

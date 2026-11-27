@@ -7,7 +7,6 @@ namespace Miraheze\MirahezeRequests\Requests;
 use MediaWiki\Api\IApiMessage;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\Status\StatusFormatter;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserNameUtils;
 use StatusValue;
@@ -19,7 +18,6 @@ class UsernameValidator {
 	public function __construct(
 		private readonly AuthManager $authManager,
 		private readonly PermissionManager $permissionManager,
-		private readonly StatusFormatter $statusFormatter,
 		private readonly UserNameUtils $userNameUtils,
 	) {
 	}
@@ -27,7 +25,7 @@ class UsernameValidator {
 	/**
 	 * @param string $name
 	 * @param UserIdentity $requester The main context's user, whose rights the providers check
-	 * @return StatusValue Good with [ 'name' => canonical name, 'warnings' => HTML[] ]
+	 * @return StatusValue<string|null> OK with the canonical name as the value
 	 */
 	public function validate( string $name, UserIdentity $requester ): StatusValue {
 		$canonicalName = $this->userNameUtils->getCanonical( $name, UserNameUtils::RIGOR_CREATABLE );
@@ -35,22 +33,26 @@ class UsernameValidator {
 			return StatusValue::newFatal( 'requestaccount-username-invalid' );
 		}
 
-		$warnings = [];
+		$status = StatusValue::newGood();
 		$overrideRights = [];
 		$scope = null;
 
 		while ( true ) {
-			$status = $this->authManager->canCreateAccount( $canonicalName );
-			$right = $status->isGood() ? null : self::getOverrideRight( $status );
+			$creationStatus = $this->authManager->canCreateAccount( $canonicalName );
+			$right = $creationStatus->isGood() ? null : self::getOverrideRight( $creationStatus );
 
-			if ( $status->isGood() || $right === null || in_array( $right, $overrideRights, true ) ) {
+			if ( $creationStatus->isGood() || $right === null || in_array( $right, $overrideRights, true ) ) {
 				ScopedCallback::consume( $scope );
-				return $status->isGood() ?
-					StatusValue::newGood( [ 'name' => $canonicalName, 'warnings' => $warnings ] ) :
-					$status;
+				if ( $creationStatus->isGood() ) {
+					$status->value = $canonicalName;
+					return $status;
+				}
+				return $creationStatus;
 			}
 
-			$warnings[] = $this->statusFormatter->getMessage( $status )->inContentLanguage()->parse();
+			foreach ( $creationStatus->getMessages() as $message ) {
+				$status->warning( $message );
+			}
 
 			// AuthManager stops at the first refusal, so recheck to find others
 			$overrideRights[] = $right;
