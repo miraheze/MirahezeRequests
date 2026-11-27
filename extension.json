@@ -116,14 +116,8 @@
 		"MirahezeRequests": "MediaWiki\\Config\\GlobalVarConfig::newInstance"
 	},
 	"Hooks": {
-		"ConfirmEditCanUserSkipCaptcha": {
-			"handler": "ConfirmEdit"
-		},
 		"ConfirmEditTriggersCaptcha": {
 			"handler": "ConfirmEdit"
-		},
-		"ExemptFromAccountCreationThrottle": {
-			"handler": "Main"
 		},
 		"GetAllBlockActions": {
 			"handler": "Main"
@@ -139,8 +133,7 @@
 		"ConfirmEdit": {
 			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\ConfirmEdit",
 			"services": [
-				"MainConfig",
-				"MirahezeRequestsAccountCreator"
+				"MainConfig"
 			]
 		},
 		"Installer": {
@@ -149,8 +142,7 @@
 		"Main": {
 			"class": "Miraheze\\MirahezeRequests\\Hooks\\Handlers\\Main",
 			"services": [
-				"MirahezeRequestsDatabaseService",
-				"MirahezeRequestsAccountCreator"
+				"MirahezeRequestsDatabaseService"
 			]
 		}
 	},

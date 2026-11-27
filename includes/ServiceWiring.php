@@ -31,6 +31,7 @@ return [
 		return new AccountCreator(
 			$services->getAuthManager(),
 			RequestContext::getMain(),
+			$services->getPermissionManager(),
 			$services->getUserFactory(),
 		);
 	},
