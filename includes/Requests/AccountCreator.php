@@ -26,7 +26,6 @@ class AccountCreator {
 
 	public function __construct(
 		private readonly AuthManager $authManager,
-		private readonly MessageLocalizer $messageLocalizer,
 		private readonly PermissionManager $permissionManager,
 		private readonly UserFactory $userFactory,
 	) {
@@ -40,6 +39,7 @@ class AccountCreator {
 	 * @param bool $ignoreTitleBlacklist Only works with the right
 	 * @param bool $ignoreAntiSpoof Only works with the right
 	 * @param WebRequest $webRequest The handler's request, holding the AuthManager session
+	 * @param MessageLocalizer $messageLocalizer
 	 * @return Status The account creation and email confirmation result
 	 */
 	public function createAccount(
@@ -49,7 +49,8 @@ class AccountCreator {
 		User $handler,
 		bool $ignoreTitleBlacklist,
 		bool $ignoreAntiSpoof,
-		WebRequest $webRequest
+		WebRequest $webRequest,
+		MessageLocalizer $messageLocalizer,
 	): Status {
 		if ( !$this->authManager->canCreateAccounts() ) {
 			return Status::newFatal( 'authmanager-create-disabled' );
@@ -67,7 +68,7 @@ class AccountCreator {
 
 		$requestTitle = SpecialPage::getTitleFor( 'RequestAccountQueue', (string)$requestId );
 		$reasonRequest = new CreationReasonAuthenticationRequest();
-		$reasonRequest->reason = $this->messageLocalizer->msg( 'requestaccount-creation-reason' )
+		$reasonRequest->reason = $messageLocalizer->msg( 'requestaccount-creation-reason' )
 			->params( "[[{$requestTitle->getPrefixedText()}|#$requestId]]" )
 			->inContentLanguage()
 			->text();

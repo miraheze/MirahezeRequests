@@ -12,6 +12,7 @@ use MediaWiki\Context\RequestContext;
 use MediaWiki\Language\RawMessage;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Status\Status;
+use MediaWiki\Tests\Unit\FakeQqxMessageLocalizer;
 use MediaWikiIntegrationTestCase;
 use Wikimedia\Rdbms\IDBAccessObject;
 
@@ -29,7 +30,8 @@ class AccountCreatorTest extends MediaWikiIntegrationTestCase {
 			$this->getTestSysop()->getUser(),
 			ignoreTitleBlacklist: false,
 			ignoreAntiSpoof: false,
-			webRequest: RequestContext::getMain()->getRequest()
+			webRequest: RequestContext::getMain()->getRequest(),
+			messageLocalizer: new FakeQqxMessageLocalizer(),
 		);
 	}
 

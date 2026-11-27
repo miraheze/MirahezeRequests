@@ -505,6 +505,7 @@ class RequestAccountViewer extends RequestViewer {
 				ignoreTitleBlacklist: !empty( $formData['ignore-titleblacklist'] ),
 				ignoreAntiSpoof: !empty( $formData['ignore-antispoof'] ),
 				webRequest: $this->context->getRequest(),
+				messageLocalizer: $this->context,
 			);
 			if ( !$status->isGood() ) {
 				return $status;
@@ -578,7 +579,7 @@ class RequestAccountViewer extends RequestViewer {
 				$success = false;
 				$notes = $this->context->msg( 'requestaccount-notes-mail-interrupted' )->inContentLanguage()->text();
 				try {
-					$mailStatus = $this->requestMailer->sendApproved( $request, $temporaryPassword );
+					$mailStatus = $this->requestMailer->sendApproved( $request, $temporaryPassword, $this->context );
 					$success = $mailStatus->isGood();
 					$notes = $success ?
 						$this->context->msg( 'requestaccount-notes-created' )->inContentLanguage()->text() :
@@ -618,7 +619,7 @@ class RequestAccountViewer extends RequestViewer {
 		$this->requestManager->resolve( MirahezeRequestsStatus::Declined->value, $this->context->getUser(), $reason );
 		$this->log( 'decline', $reason );
 
-		if ( !$this->requestMailer->sendDeclined( $this->requestManager, $reason )->isGood() ) {
+		if ( !$this->requestMailer->sendDeclined( $this->requestManager, $reason, $this->context )->isGood() ) {
 			$this->context->getOutput()->addHTML(
 				Html::warningBox( $this->context->msg( 'requestaccount-decline-mail-failed' )->parse() )
 			);

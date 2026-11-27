@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Exception\PermissionsError;
 use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPage;
@@ -539,7 +538,6 @@ class SpecialRequestAccountQueueTest extends SpecialPageTestBase {
 		$creator = $this->getMockBuilder( AccountCreator::class )
 			->setConstructorArgs( [
 				$services->getAuthManager(),
-				RequestContext::getMain(),
 				$services->getPermissionManager(),
 				$services->getUserFactory(),
 			] )

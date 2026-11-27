@@ -5,9 +5,9 @@ declare( strict_types = 1 );
 namespace Miraheze\MirahezeRequests\Tests\Integration;
 
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Mail\IEmailer;
 use MediaWiki\Mail\MailAddress;
+use MediaWiki\Tests\Unit\FakeQqxMessageLocalizer;
 use MediaWikiIntegrationTestCase;
 use Miraheze\MirahezeRequests\Requests\AccountRequestMailer;
 use Miraheze\MirahezeRequests\Requests\RequestAccountManager;
@@ -36,13 +36,14 @@ class AccountRequestMailerTest extends MediaWikiIntegrationTestCase {
 
 		$mailer = new AccountRequestMailer(
 			$emailer,
-			RequestContext::getMain(),
 			new ServiceOptions(
 				AccountRequestMailer::CONSTRUCTOR_OPTIONS,
 				$this->getServiceContainer()->getMainConfig()
 			)
 		);
-		$this->assertStatusGood( $mailer->sendApproved( $request, 'TestTempPass123' ) );
+		$this->assertStatusGood(
+			$mailer->sendApproved( $request, 'TestTempPass123', new FakeQqxMessageLocalizer() )
+		);
 
 		$this->assertArrayHasKey( 'requested@example.org', $sent );
 		$this->assertArrayHasKey( 'requester@example.org', $sent );
